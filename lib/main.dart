@@ -65,7 +65,7 @@ class AuthWrapper extends StatelessWidget {
     await Future.wait([
       Provider.of<WaterProvider>(context, listen: false).loadWater(),
       Provider.of<WeightProvider>(context, listen: false).loadWeight(),
-      Provider.of<StepsProvider>(context, listen: false).loadSteps(),
+      //Provider.of<StepsProvider>(context, listen: false).loadSteps(),
     ]);
   }
 
