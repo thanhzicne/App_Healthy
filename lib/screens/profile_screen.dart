@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import '../providers/user_provider.dart';
+import '../providers/weight_provider.dart';
 import '../models/user_model.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -595,6 +596,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   void _showEditDialog(BuildContext context) {
     final userProvider = context.read<UserProvider>();
+    final weightProvider = context.read<WeightProvider>();
     final nameController = TextEditingController(text: userProvider.user.name);
     final genderController = TextEditingController(
       text: userProvider.user.gender,

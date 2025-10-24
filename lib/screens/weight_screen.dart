@@ -19,11 +19,6 @@ class _WeightScreenState extends State<WeightScreen>
   late AnimationController _animationController;
   late List<Animation<double>> _staggerAnimations;
 
-  // =======================================================================
-  // THAY ĐỔI 1: KHAI BÁO BIẾN LƯU MỤC TIÊU (Dòng 26)
-  // =======================================================================
-  double _targetWeight = 65.0;
-
   @override
   void initState() {
     super.initState();
@@ -78,11 +73,14 @@ class _WeightScreenState extends State<WeightScreen>
   Widget build(BuildContext context) {
     final weightProvider = context.watch<WeightProvider>();
     final weight = weightProvider.weight;
+    final targetWeight = weightProvider.targetWeight;
+    final weights = weightProvider.weights; // Lấy danh sách cân nặng
+
     final bmiCategory = _getBMICategory(weight.bmi);
     final bmiColor = _getBMIColor(weight.bmi);
 
     final now = DateTime.now();
-    final todayWeights = weightProvider.weights
+    final todayWeights = weights
         .where((w) =>
             w.dateTime.year == now.year &&
             w.dateTime.month == now.month &&
@@ -90,9 +88,8 @@ class _WeightScreenState extends State<WeightScreen>
         .toList();
 
     final sevenDaysAgo = now.subtract(const Duration(days: 6));
-    final recent = weightProvider.weights
-        .where((w) => !w.dateTime.isBefore(sevenDaysAgo))
-        .toList();
+    final recent =
+        weights.where((w) => !w.dateTime.isBefore(sevenDaysAgo)).toList();
     final dailyLast = <String, WeightModel>{};
     for (final w in recent) {
       final dayKey = DateFormat('yyyy-MM-dd').format(w.dateTime);
@@ -108,14 +105,14 @@ class _WeightScreenState extends State<WeightScreen>
     IconData goalIcon;
     Color goalColor;
 
-    if (currentWeight > 0 && currentWeight > _targetWeight) {
+    if (currentWeight > 0 && currentWeight > targetWeight) {
       goalLabel = 'Cần giảm';
-      weightDifference = currentWeight - _targetWeight;
+      weightDifference = currentWeight - targetWeight;
       goalIcon = Icons.trending_down;
       goalColor = Colors.red;
-    } else if (currentWeight > 0 && currentWeight < _targetWeight) {
+    } else if (currentWeight > 0 && currentWeight < targetWeight) {
       goalLabel = 'Cần tăng';
-      weightDifference = _targetWeight - currentWeight;
+      weightDifference = targetWeight - currentWeight;
       goalIcon = Icons.trending_up;
       goalColor = Colors.green;
     } else {
@@ -136,41 +133,44 @@ class _WeightScreenState extends State<WeightScreen>
           children: [
             FadeTransition(
                 opacity: _staggerAnimations[0], child: _buildMainCard(weight)),
-            FadeTransition(
-                opacity: _staggerAnimations[1],
-                child: _buildBMICard(bmiCategory, bmiColor, weight.bmi)),
-            const SizedBox(height: 20),
-            FadeTransition(
-              opacity: _staggerAnimations[2],
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    // =======================================================================
-                    // THAY ĐỔI 2: BIẾN THẺ MỤC TIÊU THÀNH NÚT BẤM (Dòng 133-141)
-                    // =======================================================================
-                    Expanded(
-                      child: InkWell(
-                        onTap: () => _showTargetDialog(context),
-                        borderRadius: BorderRadius.circular(16),
-                        child: _buildInfoCard(
-                            Icons.flag_outlined,
-                            'Mục tiêu',
-                            '${_targetWeight.toStringAsFixed(1)} kg',
-                            Colors.blue),
+
+            // <<< THAY ĐỔI: KIỂM TRA ĐỂ ẨN/HIỆN THẺ BMI VÀ MỤC TIÊU >>>
+            // Chỉ hiển thị các thẻ này nếu đã có dữ liệu cân nặng
+            if (weights.isNotEmpty) ...[
+              FadeTransition(
+                  opacity: _staggerAnimations[1],
+                  child: _buildBMICard(bmiCategory, bmiColor, weight.bmi)),
+              const SizedBox(height: 20),
+              FadeTransition(
+                opacity: _staggerAnimations[2],
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => _showTargetDialog(context),
+                          borderRadius: BorderRadius.circular(16),
+                          child: _buildInfoCard(
+                              Icons.flag_outlined,
+                              'Mục tiêu',
+                              '${targetWeight.toStringAsFixed(1)} kg',
+                              Colors.blue),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                        child: _buildInfoCard(
-                            goalIcon,
-                            goalLabel,
-                            '${weightDifference.toStringAsFixed(1)} kg',
-                            goalColor)),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: _buildInfoCard(
+                              goalIcon,
+                              goalLabel,
+                              '${weightDifference.toStringAsFixed(1)} kg',
+                              goalColor)),
+                    ],
+                  ),
                 ),
               ),
-            ),
+            ],
+
             const SizedBox(height: 20),
             FadeTransition(
               opacity: _staggerAnimations[3],
@@ -263,6 +263,7 @@ class _WeightScreenState extends State<WeightScreen>
     );
   }
 
+  // Các hàm build UI và dialog không thay đổi so với phiên bản trước
   Widget _buildMainCard(WeightModel weight) {
     return SlideTransition(
       position:
@@ -420,14 +421,13 @@ class _WeightScreenState extends State<WeightScreen>
     );
   }
 
-  // =======================================================================
-  // THAY ĐỔI 3: TOÀN BỘ HÀM MỚI ĐỂ SỬA MỤC TIÊU (Dòng 345-450)
-  // =======================================================================
   void _showTargetDialog(BuildContext context) {
-    final targetController = TextEditingController();
-    targetController.text = _targetWeight.toStringAsFixed(1);
-
+    final weightProvider = context.read<WeightProvider>();
     final userProvider = context.read<UserProvider>();
+
+    final targetController = TextEditingController();
+    targetController.text = weightProvider.targetWeight.toStringAsFixed(1);
+
     final double userHeight = userProvider.user.height;
 
     Widget suggestionWidget = const SizedBox.shrink();
@@ -521,13 +521,11 @@ class _WeightScreenState extends State<WeightScreen>
                   Text('Hủy', style: TextStyle(color: Colors.grey.shade600))),
           ElevatedButton(
             onPressed: () {
-              final newTarget =
-                  double.tryParse(targetController.text) ?? _targetWeight;
-              if (newTarget > 0) {
-                setState(() {
-                  _targetWeight = newTarget;
-                });
-              }
+              final newTarget = double.tryParse(targetController.text) ??
+                  weightProvider.targetWeight;
+
+              weightProvider.updateTargetWeight(newTarget);
+
               Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
