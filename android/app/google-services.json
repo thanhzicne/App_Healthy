@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "377997945929",
+    "project_id": "healthapp-d2c4b",
+    "storage_bucket": "healthapp-d2c4b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:377997945929:android:b2610ac3c91e07bab5e398",
+        "android_client_info": {
+          "package_name": "com.example.app_healthcare"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "377997945929-796okdd4131bgpumji8p5irrfva55hkf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmKh-zFp6Iek4MJHEampJYNeZsyzkldh8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "377997945929-796okdd4131bgpumji8p5irrfva55hkf.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
