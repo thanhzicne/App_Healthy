@@ -19,6 +19,11 @@ class _WeightScreenState extends State<WeightScreen>
   late AnimationController _animationController;
   late List<Animation<double>> _staggerAnimations;
 
+  // =======================================================================
+  // THAY ĐỔI 1: KHAI BÁO BIẾN LƯU MỤC TIÊU (Dòng 26)
+  // =======================================================================
+  double _targetWeight = 65.0;
+
   @override
   void initState() {
     super.initState();
@@ -76,7 +81,6 @@ class _WeightScreenState extends State<WeightScreen>
     final bmiCategory = _getBMICategory(weight.bmi);
     final bmiColor = _getBMIColor(weight.bmi);
 
-    // Lọc dữ liệu cho biểu đồ
     final now = DateTime.now();
     final todayWeights = weightProvider.weights
         .where((w) =>
@@ -97,8 +101,6 @@ class _WeightScreenState extends State<WeightScreen>
     final sevenDayWeights = dailyLast.values.toList()
       ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
 
-    // ================= LOGIC MỚI CHO THẺ MỤC TIÊU =================
-    const double targetWeight = 60.0;
     final double currentWeight = weight.currentWeight;
 
     String goalLabel;
@@ -106,14 +108,14 @@ class _WeightScreenState extends State<WeightScreen>
     IconData goalIcon;
     Color goalColor;
 
-    if (currentWeight > targetWeight) {
+    if (currentWeight > 0 && currentWeight > _targetWeight) {
       goalLabel = 'Cần giảm';
-      weightDifference = currentWeight - targetWeight;
+      weightDifference = currentWeight - _targetWeight;
       goalIcon = Icons.trending_down;
       goalColor = Colors.red;
-    } else if (currentWeight < targetWeight) {
+    } else if (currentWeight > 0 && currentWeight < _targetWeight) {
       goalLabel = 'Cần tăng';
-      weightDifference = targetWeight - currentWeight;
+      weightDifference = _targetWeight - currentWeight;
       goalIcon = Icons.trending_up;
       goalColor = Colors.green;
     } else {
@@ -122,7 +124,6 @@ class _WeightScreenState extends State<WeightScreen>
       goalIcon = Icons.check_circle_outline;
       goalColor = Colors.blue;
     }
-    // ==============================================================
 
     return Scaffold(
       appBar: AppBar(
@@ -145,15 +146,21 @@ class _WeightScreenState extends State<WeightScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
-                    // Thẻ mục tiêu
+                    // =======================================================================
+                    // THAY ĐỔI 2: BIẾN THẺ MỤC TIÊU THÀNH NÚT BẤM (Dòng 133-141)
+                    // =======================================================================
                     Expanded(
+                      child: InkWell(
+                        onTap: () => _showTargetDialog(context),
+                        borderRadius: BorderRadius.circular(16),
                         child: _buildInfoCard(
                             Icons.flag_outlined,
                             'Mục tiêu',
-                            '${targetWeight.toStringAsFixed(1)} kg',
-                            Colors.blue)),
+                            '${_targetWeight.toStringAsFixed(1)} kg',
+                            Colors.blue),
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    // Thẻ cần tăng/giảm (đã được cập nhật)
                     Expanded(
                         child: _buildInfoCard(
                             goalIcon,
@@ -288,7 +295,9 @@ class _WeightScreenState extends State<WeightScreen>
             const SizedBox(height: 16),
             TweenAnimationBuilder<double>(
               tween: Tween(
-                  begin: weight.currentWeight - 5, end: weight.currentWeight),
+                  begin:
+                      weight.currentWeight > 0 ? weight.currentWeight - 5 : 0,
+                  end: weight.currentWeight),
               duration: const Duration(milliseconds: 1000),
               builder: (context, value, child) => Text(
                   '${value.toStringAsFixed(1)}',
@@ -329,7 +338,7 @@ class _WeightScreenState extends State<WeightScreen>
                         fontWeight: FontWeight.w500)),
                 const SizedBox(height: 4),
                 TweenAnimationBuilder<double>(
-                  tween: Tween(begin: bmi - 2, end: bmi),
+                  tween: Tween(begin: bmi > 2 ? bmi - 2 : 0, end: bmi),
                   duration: const Duration(milliseconds: 1000),
                   builder: (context, value, child) => Text(
                       '${value.toStringAsFixed(1)}',
@@ -411,11 +420,137 @@ class _WeightScreenState extends State<WeightScreen>
     );
   }
 
+  // =======================================================================
+  // THAY ĐỔI 3: TOÀN BỘ HÀM MỚI ĐỂ SỬA MỤC TIÊU (Dòng 345-450)
+  // =======================================================================
+  void _showTargetDialog(BuildContext context) {
+    final targetController = TextEditingController();
+    targetController.text = _targetWeight.toStringAsFixed(1);
+
+    final userProvider = context.read<UserProvider>();
+    final double userHeight = userProvider.user.height;
+
+    Widget suggestionWidget = const SizedBox.shrink();
+    if (userHeight > 0) {
+      final double heightInMeters = userHeight / 100;
+      final double lowerBound = 18.5 * (heightInMeters * heightInMeters);
+      final double upperBound = 24.9 * (heightInMeters * heightInMeters);
+      final double idealWeight = 22.0 * (heightInMeters * heightInMeters);
+
+      suggestionWidget = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8)),
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.blue.shade600, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Gợi ý: Cân nặng lý tưởng của bạn là từ ${lowerBound.toStringAsFixed(1)} kg đến ${upperBound.toStringAsFixed(1)} kg.',
+                    style: TextStyle(fontSize: 12, color: Colors.blue.shade800),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton.icon(
+              icon: Icon(Icons.lightbulb_outline, size: 16),
+              label: Text('Áp dụng mục tiêu lý tưởng'),
+              onPressed: () {
+                targetController.text = idealWeight.toStringAsFixed(1);
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.blue.shade700,
+                alignment: Alignment.center,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(children: [
+          Icon(Icons.flag_outlined, color: Colors.blue.shade600),
+          const SizedBox(width: 8),
+          const Text('Đặt mục tiêu cân nặng')
+        ]),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: targetController,
+                decoration: InputDecoration(
+                  labelText: 'Mục tiêu (kg)',
+                  prefixIcon:
+                      Icon(Icons.scale_outlined, color: Colors.blue.shade600),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide:
+                          BorderSide(color: Colors.blue.shade600, width: 2)),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                autofocus: true,
+              ),
+              suggestionWidget,
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child:
+                  Text('Hủy', style: TextStyle(color: Colors.grey.shade600))),
+          ElevatedButton(
+            onPressed: () {
+              final newTarget =
+                  double.tryParse(targetController.text) ?? _targetWeight;
+              if (newTarget > 0) {
+                setState(() {
+                  _targetWeight = newTarget;
+                });
+              }
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade600,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Lưu',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showWeightDialog(BuildContext context) {
     final weightProvider = context.read<WeightProvider>();
     final userProvider = context.read<UserProvider>();
-    weightController.text =
-        weightProvider.weight.currentWeight.toStringAsFixed(1);
+    weightController.text = weightProvider.weight.currentWeight > 0
+        ? weightProvider.weight.currentWeight.toStringAsFixed(1)
+        : '';
 
     showDialog(
       context: context,
@@ -469,24 +604,29 @@ class _WeightScreenState extends State<WeightScreen>
                   Text('Hủy', style: TextStyle(color: Colors.grey.shade600))),
           ElevatedButton(
             onPressed: () {
-              final newWeight = WeightModel(
-                  currentWeight: double.tryParse(weightController.text) ?? 0);
-              weightProvider.updateWeight(newWeight, userProvider.user.height);
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: const Row(children: [
-                  Icon(Icons.check_circle, color: Colors.white),
-                  SizedBox(width: 8),
-                  Text('Cập nhật thành công',
-                      style: TextStyle(fontWeight: FontWeight.w600))
-                ]),
-                backgroundColor: Colors.green.shade600,
-                duration: const Duration(milliseconds: 1500),
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              ));
+              final newWeightValue =
+                  double.tryParse(weightController.text) ?? 0;
+              if (newWeightValue > 0) {
+                final newWeight = WeightModel(currentWeight: newWeightValue);
+                weightProvider.updateWeight(
+                    newWeight, userProvider.user.height);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: const Row(children: [
+                    Icon(Icons.check_circle, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text('Cập nhật thành công',
+                        style: TextStyle(fontWeight: FontWeight.w600))
+                  ]),
+                  backgroundColor: Colors.green.shade600,
+                  duration: const Duration(milliseconds: 1500),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ));
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.orange.shade600,
