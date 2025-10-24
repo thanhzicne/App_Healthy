@@ -4,6 +4,7 @@ import '../screens/steps_screen.dart';
 import '../screens/weight_screen.dart';
 import '../screens/water_screen.dart';
 import '../screens/profile_screen.dart';
+import '../screens/news_screen.dart'; // Đã import
 
 class BottomNav extends StatefulWidget {
   const BottomNav({super.key});
@@ -20,7 +21,8 @@ class _BottomNavState extends State<BottomNav> {
     StepsScreen(),
     WeightScreen(),
     WaterScreen(),
-    ProfileScreen(),
+    NewsScreen(), // Màn hình thứ 6 (index 5)
+    ProfileScreen()
   ];
 
   void _onItemTapped(int index) {
@@ -61,6 +63,11 @@ class _BottomNavState extends State<BottomNav> {
             label: 'Nước uống',
           ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Hộ sơ'),
+          // Thêm mục thứ 6 để khớp với NewsScreen
+          BottomNavigationBarItem(
+            icon: Icon(Icons.article), // Icon cho tin tức
+            label: 'Tin tức', // Label cho tin tức
+          ),
         ],
       ),
     );
