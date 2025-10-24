@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/weight_provider.dart';
+import '../providers/user_provider.dart';
 import '../models/weight_model.dart';
 import '../widgets/chart_widget.dart';
 
@@ -75,7 +76,7 @@ class _WeightScreenState extends State<WeightScreen>
 
   @override
   Widget build(BuildContext context) {
-    final weight = Provider.of<WeightProvider>(context).weight;
+    final weight = context.watch<WeightProvider>().weight;
     final bmiCategory = _getBMICategory(weight.bmi);
     final bmiColor = _getBMIColor(weight.bmi);
 
@@ -92,16 +93,15 @@ class _WeightScreenState extends State<WeightScreen>
             FadeTransition(
               opacity: _staggerAnimations[0],
               child: SlideTransition(
-                position:
-                    Tween<Offset>(
-                      begin: const Offset(0, -0.3),
-                      end: Offset.zero,
-                    ).animate(
-                      CurvedAnimation(
-                        parent: _animationController,
-                        curve: Curves.easeOut,
-                      ),
-                    ),
+                position: Tween<Offset>(
+                  begin: const Offset(0, -0.3),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(
+                    parent: _animationController,
+                    curve: Curves.easeOut,
+                  ),
+                ),
                 child: Container(
                   margin: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -443,7 +443,8 @@ class _WeightScreenState extends State<WeightScreen>
   }
 
   void _showWeightDialog(BuildContext context) {
-    final weightProvider = Provider.of<WeightProvider>(context, listen: false);
+    final weightProvider = context.read<WeightProvider>();
+    final userProvider = context.read<UserProvider>();
     weightController.text = weightProvider.weight.currentWeight.toString();
 
     showDialog(
@@ -536,7 +537,11 @@ class _WeightScreenState extends State<WeightScreen>
                   currentWeight: double.parse(weightController.text),
                   bmi: weightProvider.weight.bmi,
                 );
-                weightProvider.updateWeight(newWeight);
+                // Pass both newWeight AND userHeight
+                weightProvider.updateWeight(
+                  newWeight,
+                  userProvider.user.height,
+                );
                 Navigator.pop(context);
 
                 // Success feedback

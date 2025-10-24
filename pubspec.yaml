@@ -1,40 +1,48 @@
 name: app_healthcare
-description: "A new Flutter project."
+description: "A Flutter healthcare tracking application with Firebase integration."
 
 publish_to: 'none'
-
 
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.9.2
-
+  sdk: ^3.0.0
 
 dependencies:
   flutter:
     sdk: flutter
+  
+  # State Management
   provider: ^6.1.1
-  fl_chart: ^0.65.0
+  
+  # Firebase
   firebase_core: ^2.24.2
   firebase_auth: ^4.15.3
+  firebase_auth_web: ^5.9.0
   cloud_firestore: ^4.14.0
+  firebase_storage: ^11.5.0
+  
+  # UI & Fonts
   google_fonts: ^6.1.0
-
-  firebase_auth_web: ^5.9.0  
+  
+  # Charts
+  fl_chart: ^0.65.0
+  
+  
+  # Image Picker (Avatar Upload)
+  image_picker: ^1.1.2
+  
+  # Additional utilities
+  cupertino_icons: ^1.0.6
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  # Charts - THÊM MỚI
-  # fl_chart: ^0.66.0
-
   flutter_lints: ^5.0.0
 
-
 flutter:
-
-
   uses-material-design: true
+  
   assets:
     - assets/images/

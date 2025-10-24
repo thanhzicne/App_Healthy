@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'dart:typed_data';
 import '../providers/user_provider.dart';
 import '../models/user_model.dart';
-import '../widgets/info_card.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -17,6 +20,10 @@ class _ProfileScreenState extends State<ProfileScreen>
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
+  File? _selectedImage;
+  Uint8List? _webImage; // For web platform
+  bool _isLoadingImage = false;
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -43,16 +50,219 @@ class _ProfileScreenState extends State<ProfileScreen>
     super.dispose();
   }
 
+  // Hàm chọn ảnh từ camera
+  Future<void> _pickImageFromCamera() async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+      if (image != null) {
+        if (kIsWeb) {
+          final bytes = await image.readAsBytes();
+          setState(() {
+            _webImage = bytes;
+          });
+        } else {
+          setState(() {
+            _selectedImage = File(image.path);
+          });
+        }
+      }
+    } catch (e) {
+      _showErrorSnackBar('Lỗi khi chụp ảnh: $e');
+    }
+  }
+
+  // Hàm chọn ảnh từ thư viện
+  Future<void> _pickImageFromGallery() async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+      if (image != null) {
+        if (kIsWeb) {
+          final bytes = await image.readAsBytes();
+          setState(() {
+            _webImage = bytes;
+          });
+        } else {
+          setState(() {
+            _selectedImage = File(image.path);
+          });
+        }
+      }
+    } catch (e) {
+      _showErrorSnackBar('Lỗi khi chọn ảnh: $e');
+    }
+  }
+
+  // Hàm hiển thị dialog chọn ảnh
+  void _showAvatarPickerDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Chọn ảnh đại diện'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!kIsWeb) // Camera only works on mobile
+              ListTile(
+                leading: Icon(Icons.camera_alt, color: Colors.blue.shade600),
+                title: const Text('Chụp ảnh từ camera'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImageFromCamera();
+                },
+              ),
+            ListTile(
+              leading: Icon(Icons.image, color: Colors.blue.shade600),
+              title: const Text('Chọn từ thư viện'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImageFromGallery();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Hàm hiển thị preview ảnh đã chọn
+  void _showImagePreviewDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xác nhận ảnh'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: kIsWeb
+              ? (_webImage != null
+                  ? Image.memory(_webImage!)
+                  : const SizedBox())
+              : (_selectedImage != null
+                  ? Image.file(_selectedImage!)
+                  : const SizedBox()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() {
+                _selectedImage = null;
+                _webImage = null;
+              });
+            },
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _uploadAvatarToFirebase();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            child: const Text('Lưu ảnh'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Hàm upload ảnh lên Firebase Storage
+  Future<void> _uploadAvatarToFirebase() async {
+    if (_selectedImage == null && _webImage == null) return;
+
+    setState(() {
+      _isLoadingImage = true;
+    });
+
+    try {
+      final userProvider = context.read<UserProvider>();
+
+      String avatarUrl;
+      if (kIsWeb && _webImage != null) {
+        // Upload for web using bytes
+        avatarUrl = await userProvider.uploadAvatarWeb(_webImage!);
+      } else if (_selectedImage != null) {
+        // Upload for mobile using file
+        avatarUrl = await userProvider.uploadAvatar(_selectedImage!);
+      } else {
+        return;
+      }
+
+      // Update user info
+      userProvider.updateUserAvatar(avatarUrl);
+
+      setState(() {
+        _selectedImage = null;
+        _webImage = null;
+      });
+
+      _showSuccessSnackBar('Cập nhật ảnh đại diện thành công!');
+    } catch (e) {
+      _showErrorSnackBar('Lỗi khi upload ảnh: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingImage = false;
+        });
+      }
+    }
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.red.shade400,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.green.shade400,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final user = Provider.of<UserProvider>(context).user;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final user = context.watch<UserProvider>().user;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Hồ sơ'),
+        title: const Text(
+          'Hồ sơ',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
         elevation: 0,
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.black87),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -81,31 +291,88 @@ class _ProfileScreenState extends State<ProfileScreen>
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 15,
-                            offset: const Offset(0, 5),
+                    // Avatar with Edit Button
+                    Stack(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 15,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: CircleAvatar(
-                        radius: 60,
-                        backgroundColor: Colors.white,
-                        child: Text(
-                          user.name.isNotEmpty
-                              ? user.name[0].toUpperCase()
-                              : 'U',
-                          style: TextStyle(
-                            fontSize: 40,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue.shade600,
+                          child: CircleAvatar(
+                            radius: 60,
+                            backgroundColor: Colors.white,
+                            backgroundImage: user.avatarUrl != null &&
+                                    user.avatarUrl!.isNotEmpty
+                                ? NetworkImage(user.avatarUrl!)
+                                : null,
+                            child: user.avatarUrl == null ||
+                                    user.avatarUrl!.isEmpty
+                                ? Text(
+                                    user.name.isNotEmpty
+                                        ? user.name[0].toUpperCase()
+                                        : 'U',
+                                    style: TextStyle(
+                                      fontSize: 40,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue.shade600,
+                                    ),
+                                  )
+                                : null,
                           ),
                         ),
-                      ),
+                        // Edit Button
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: GestureDetector(
+                            onTap: () {
+                              if (_selectedImage != null || _webImage != null) {
+                                _showImagePreviewDialog();
+                              } else {
+                                _showAvatarPickerDialog();
+                              }
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.2),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              padding: const EdgeInsets.all(8),
+                              child: _isLoadingImage
+                                  ? SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                          Colors.blue.shade600,
+                                        ),
+                                      ),
+                                    )
+                                  : Icon(
+                                      Icons.camera_alt,
+                                      color: Colors.blue.shade600,
+                                      size: 20,
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -120,7 +387,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.email_outlined,
                           color: Colors.white70,
                           size: 18,
@@ -174,7 +441,29 @@ class _ProfileScreenState extends State<ProfileScreen>
           const SizedBox(height: 12),
           _buildActionButton(
             onPressed: () async {
-              await FirebaseAuth.instance.signOut();
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Xác nhận đăng xuất'),
+                  content: const Text('Bạn có chắc chắn muốn đăng xuất?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Hủy'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                      ),
+                      child: const Text('Đăng xuất'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirm == true) {
+                await FirebaseAuth.instance.signOut();
+              }
             },
             label: 'Đăng xuất',
             icon: Icons.logout_outlined,
@@ -305,7 +594,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   void _showEditDialog(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userProvider = context.read<UserProvider>();
     final nameController = TextEditingController(text: userProvider.user.name);
     final genderController = TextEditingController(
       text: userProvider.user.gender,
@@ -367,6 +656,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 gender: genderController.text,
                 age: int.parse(ageController.text),
                 height: double.parse(heightController.text),
+                avatarUrl: userProvider.user.avatarUrl,
               );
               userProvider.updateUser(newUser);
               Navigator.pop(context);

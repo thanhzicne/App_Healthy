@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../models/weight_model.dart';
 import '../utils/helpers.dart';
-import '../providers/user_provider.dart'; // Import UserProvider
 
 class WeightProvider with ChangeNotifier {
   WeightModel _weight = WeightModel();
@@ -12,32 +11,43 @@ class WeightProvider with ChangeNotifier {
 
   Future<void> loadWeight() async {
     if (FirebaseAuth.instance.currentUser == null) return;
-    String uid = FirebaseAuth.instance.currentUser!.uid;
-    DocumentSnapshot doc = await FirebaseFirestore.instance
-        .collection('weights')
-        .doc(uid)
-        .get();
-    if (doc.exists) {
-      _weight = WeightModel.fromJson(doc.data() as Map<String, dynamic>);
-      notifyListeners();
+
+    try {
+      String uid = FirebaseAuth.instance.currentUser!.uid;
+      DocumentSnapshot doc =
+          await FirebaseFirestore.instance.collection('weights').doc(uid).get();
+
+      if (doc.exists) {
+        _weight = WeightModel.fromJson(doc.data() as Map<String, dynamic>);
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Error loading weight: $e');
     }
   }
 
-  Future<void> updateWeight(WeightModel newWeight) async {
+  Future<void> updateWeight(WeightModel newWeight, double userHeight) async {
     if (FirebaseAuth.instance.currentUser == null) return;
-    String uid = FirebaseAuth.instance.currentUser!.uid;
-    // Lấy height từ UserProvider
-    final userProvider = UserProvider();
-    await userProvider.loadUser();
-    newWeight.bmi = calculateBMI(
-      newWeight.currentWeight,
-      userProvider.user.height,
-    );
-    await FirebaseFirestore.instance
-        .collection('weights')
-        .doc(uid)
-        .set(newWeight.toJson());
-    _weight = newWeight;
-    notifyListeners();
+
+    try {
+      String uid = FirebaseAuth.instance.currentUser!.uid;
+
+      // Calculate BMI with provided height
+      newWeight.bmi = calculateBMI(
+        newWeight.currentWeight,
+        userHeight,
+      );
+
+      await FirebaseFirestore.instance
+          .collection('weights')
+          .doc(uid)
+          .set(newWeight.toJson());
+
+      _weight = newWeight;
+      notifyListeners();
+    } catch (e) {
+      print('Error updating weight: $e');
+      rethrow;
+    }
   }
 }

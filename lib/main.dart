@@ -6,7 +6,7 @@ import 'providers/user_provider.dart';
 import 'providers/water_provider.dart';
 import 'providers/weight_provider.dart';
 import 'providers/steps_provider.dart';
-import 'navigation/bottom_nav.dart';
+import 'navigation/bottom_nav.dart'; // Giả sử bạn có file này để quản lý BottomNavigationBar
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/steps_screen.dart';
@@ -37,13 +37,8 @@ class MyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           primarySwatch: Colors.blue,
-          scaffoldBackgroundColor: Colors.white,
-          textTheme: const TextTheme(
-            bodyMedium: TextStyle(color: Colors.black87),
-          ),
           useMaterial3: true,
         ),
-        // Định nghĩa tất cả named routes
         routes: {
           '/login': (context) => const LoginScreen(),
           '/register': (context) => const RegisterScreen(),
@@ -52,101 +47,81 @@ class MyApp extends StatelessWidget {
           '/weight': (context) => const WeightScreen(),
           '/water': (context) => const WaterScreen(),
         },
-        // Xử lý route không tồn tại
-        onUnknownRoute: (settings) {
-          return MaterialPageRoute(builder: (context) => const LoginScreen());
-        },
-        // StreamBuilder để kiểm tra trạng thái đăng nhập
-        home: StreamBuilder<User?>(
-          stream: FirebaseAuth.instance.authStateChanges(),
-          builder: (context, snapshot) {
-            // Đang load
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Scaffold(
-                body: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Colors.blue.shade400,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Đang tải...',
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            // Có lỗi
-            if (snapshot.hasError) {
-              return Scaffold(
-                body: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        size: 64,
-                        color: Colors.red.shade400,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Có lỗi xảy ra',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade800,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        snapshot.error.toString(),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            // Người dùng đã đăng nhập
-            if (snapshot.hasData) {
-              // Load tất cả provider data
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (context.mounted) {
-                  Provider.of<UserProvider>(context, listen: false).loadUser();
-                  Provider.of<WaterProvider>(
-                    context,
-                    listen: false,
-                  ).loadWater();
-                  Provider.of<WeightProvider>(
-                    context,
-                    listen: false,
-                  ).loadWeight();
-                  Provider.of<StepsProvider>(
-                    context,
-                    listen: false,
-                  ).loadSteps();
-                }
-              });
-              return const BottomNav();
-            }
-
-            // Người dùng chưa đăng nhập
-            return const LoginScreen();
-          },
-        ),
+        home: const AuthWrapper(),
       ),
     );
   }
+}
+
+// Widget này sẽ lắng nghe trạng thái đăng nhập
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  // Hàm helper để tải tất cả dữ liệu ban đầu một cách an toàn
+  Future<void> _loadInitialData(BuildContext context) async {
+    // Dùng read vì đây là hành động một lần, không cần rebuild widget này
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    // Chỉ tải các provider khác sau khi đã chắc chắn có thông tin người dùng
+    if (userProvider.user.email.isEmpty) {
+      // Kiểm tra để tránh load lại không cần thiết
+      await userProvider.loadUser();
+    }
+
+    // Tải các dữ liệu khác
+    await Future.wait([
+      Provider.of<WaterProvider>(context, listen: false).loadWater(),
+      Provider.of<WeightProvider>(context, listen: false).loadWeight(),
+      Provider.of<StepsProvider>(context, listen: false).loadSteps(),
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const LoadingScreen();
+        }
+
+        if (snapshot.hasData) {
+          // Người dùng đã đăng nhập -> Dùng FutureBuilder để chờ dữ liệu được load
+          return FutureBuilder(
+            future: _loadInitialData(context),
+            builder: (context, loadSnapshot) {
+              if (loadSnapshot.connectionState == ConnectionState.waiting) {
+                return const LoadingScreen();
+              }
+              // Nếu load dữ liệu lỗi (có thể hiển thị màn hình lỗi)
+              if (loadSnapshot.hasError) {
+                return ErrorScreen(error: loadSnapshot.error.toString());
+              }
+              // Load xong -> Vào trang chính
+              return const BottomNav();
+            },
+          );
+        }
+
+        // Người dùng chưa đăng nhập -> Về màn hình Login
+        return const LoginScreen();
+      },
+    );
+  }
+}
+
+// Các widget tiện ích (có thể đặt trong file riêng)
+class LoadingScreen extends StatelessWidget {
+  const LoadingScreen({super.key});
+  @override
+  Widget build(BuildContext context) =>
+      const Scaffold(body: Center(child: CircularProgressIndicator()));
+}
+
+class ErrorScreen extends StatelessWidget {
+  final String error;
+  const ErrorScreen({super.key, required this.error});
+  @override
+  Widget build(BuildContext context) =>
+      Scaffold(body: Center(child: Text('Đã có lỗi xảy ra: $error')));
 }
