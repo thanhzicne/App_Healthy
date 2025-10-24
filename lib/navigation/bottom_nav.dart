@@ -36,6 +36,19 @@ class _BottomNavState extends State<BottomNav> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
+        type: BottomNavigationBarType.fixed,
+        elevation: 8,
+        backgroundColor: Colors.white,
+        selectedItemColor: Colors.blue.shade400,
+        unselectedItemColor: Colors.grey.shade600,
+        selectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w500,
+          fontSize: 12,
+        ),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Trang chủ'),
           BottomNavigationBarItem(
@@ -47,7 +60,7 @@ class _BottomNavState extends State<BottomNav> {
             icon: Icon(Icons.local_drink),
             label: 'Nước uống',
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Hồ sơ'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Hộ sơ'),
         ],
       ),
     );

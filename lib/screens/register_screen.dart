@@ -19,6 +19,13 @@ class _RegisterScreenState extends State<RegisterScreen>
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
 
+  // Map để lưu trữ lỗi của từng field
+  Map<String, String?> _fieldErrors = {
+    'email': null,
+    'password': null,
+    'confirm': null,
+  };
+
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
@@ -62,32 +69,67 @@ class _RegisterScreenState extends State<RegisterScreen>
     super.dispose();
   }
 
+  // Hàm validate email
+  String? _validateEmail(String value) {
+    if (value.isEmpty) {
+      return 'Vui lòng nhập email';
+    }
+    if (!RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    ).hasMatch(value)) {
+      return 'Email không hợp lệ';
+    }
+    return null;
+  }
+
+  // Hàm validate password
+  String? _validatePassword(String value) {
+    if (value.isEmpty) {
+      return 'Vui lòng nhập mật khẩu';
+    }
+    if (value.length < 6) {
+      return 'Mật khẩu phải có ít nhất 6 ký tự';
+    }
+    return null;
+  }
+
+  // Hàm validate confirm password
+  String? _validateConfirmPassword(String value) {
+    if (value.isEmpty) {
+      return 'Vui lòng xác nhận mật khẩu';
+    }
+    if (value != _passwordController.text) {
+      return 'Mật khẩu không khớp';
+    }
+    return null;
+  }
+
+  // Hàm cập nhật lỗi cho từng field
+  void _updateFieldError(String fieldName, String? error) {
+    setState(() {
+      _fieldErrors[fieldName] = error;
+    });
+  }
+
   Future<void> _registerUser() async {
-    if (!_formKey.currentState!.validate()) return;
+    // Validate tất cả fields
+    String? emailError = _validateEmail(_emailController.text.trim());
+    String? passwordError = _validatePassword(_passwordController.text.trim());
+    String? confirmError = _validateConfirmPassword(
+      _confirmController.text.trim(),
+    );
+
+    _updateFieldError('email', emailError);
+    _updateFieldError('password', passwordError);
+    _updateFieldError('confirm', confirmError);
+
+    // Nếu có lỗi thì dừng
+    if (emailError != null || passwordError != null || confirmError != null) {
+      return;
+    }
 
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
-    final confirm = _confirmController.text.trim();
-
-    if (password != confirm) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error_outline, color: Colors.white),
-              const SizedBox(width: 8),
-              const Expanded(child: Text("Mật khẩu xác nhận không khớp")),
-            ],
-          ),
-          backgroundColor: Colors.red.shade400,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
-      return;
-    }
 
     setState(() => _isLoading = true);
 
@@ -116,6 +158,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         ),
       );
 
+      // Chuyển sang màn hình login
       Navigator.pushReplacementNamed(context, '/login');
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
@@ -123,28 +166,31 @@ class _RegisterScreenState extends State<RegisterScreen>
       String errorMessage = "Lỗi: ${e.message}";
       if (e.code == 'email-already-in-use') {
         errorMessage = "Email đã được sử dụng";
+        _updateFieldError('email', errorMessage);
       } else if (e.code == 'weak-password') {
         errorMessage = "Mật khẩu quá yếu";
+        _updateFieldError('password', errorMessage);
       } else if (e.code == 'invalid-email') {
         errorMessage = "Email không hợp lệ";
+        _updateFieldError('email', errorMessage);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(child: Text(errorMessage)),
+              ],
+            ),
+            backgroundColor: Colors.red.shade400,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
       }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error_outline, color: Colors.white),
-              const SizedBox(width: 8),
-              Expanded(child: Text(errorMessage)),
-            ],
-          ),
-          backgroundColor: Colors.red.shade400,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -182,360 +228,327 @@ class _RegisterScreenState extends State<RegisterScreen>
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(32.0),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Logo Icon với animation
-                            TweenAnimationBuilder(
-                              tween: Tween<double>(begin: 0, end: 1),
-                              duration: const Duration(milliseconds: 1200),
-                              builder: (context, double value, child) {
-                                return Transform.scale(
-                                  scale: value,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(20),
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Colors.purple.shade400,
-                                          Colors.pink.shade400,
-                                        ],
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Logo Icon với animation
+                          TweenAnimationBuilder(
+                            tween: Tween<double>(begin: 0, end: 1),
+                            duration: const Duration(milliseconds: 1200),
+                            builder: (context, double value, child) {
+                              return Transform.scale(
+                                scale: value,
+                                child: Container(
+                                  padding: const EdgeInsets.all(20),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.purple.shade400,
+                                        Colors.pink.shade400,
+                                      ],
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.pink.withOpacity(0.3),
+                                        blurRadius: 20,
+                                        spreadRadius: 5,
                                       ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.pink.withOpacity(0.3),
-                                          blurRadius: 20,
-                                          spreadRadius: 5,
+                                    ],
+                                  ),
+                                  child: Image.asset(
+                                    'assets/images/user.png',
+                                    width: 80,
+                                    height: 80,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Title
+                          Text(
+                            'Tạo tài khoản mới',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey.shade800,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Điền thông tin để bắt đầu',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+
+                          // Email Field
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: InputDecoration(
+                              labelText: 'Email',
+                              errorText: _fieldErrors['email'],
+                              prefixIcon: Icon(
+                                Icons.email_outlined,
+                                color: Colors.purple.shade400,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: _fieldErrors['email'] != null
+                                      ? Colors.red.shade300
+                                      : Colors.grey.shade300,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: _fieldErrors['email'] != null
+                                      ? Colors.red.shade400
+                                      : Colors.purple.shade400,
+                                  width: 2,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
+                            ),
+                            onChanged: (value) {
+                              _updateFieldError('email', _validateEmail(value));
+                            },
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Password Field
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
+                              labelText: 'Mật khẩu',
+                              errorText: _fieldErrors['password'],
+                              prefixIcon: Icon(
+                                Icons.lock_outline,
+                                color: Colors.purple.shade400,
+                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                  color: Colors.grey.shade600,
+                                ),
+                                onPressed: () {
+                                  setState(
+                                    () => _obscurePassword = !_obscurePassword,
+                                  );
+                                },
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: _fieldErrors['password'] != null
+                                      ? Colors.red.shade300
+                                      : Colors.grey.shade300,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: _fieldErrors['password'] != null
+                                      ? Colors.red.shade400
+                                      : Colors.purple.shade400,
+                                  width: 2,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
+                            ),
+                            onChanged: (value) {
+                              _updateFieldError(
+                                'password',
+                                _validatePassword(value),
+                              );
+                              // Trigger re-validate confirm password khi password thay đổi
+                              if (_confirmController.text.isNotEmpty) {
+                                _updateFieldError(
+                                  'confirm',
+                                  _validateConfirmPassword(
+                                    _confirmController.text,
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Confirm Password Field
+                          TextFormField(
+                            controller: _confirmController,
+                            obscureText: _obscureConfirm,
+                            decoration: InputDecoration(
+                              labelText: 'Xác nhận mật khẩu',
+                              errorText: _fieldErrors['confirm'],
+                              prefixIcon: Icon(
+                                Icons.lock_clock_outlined,
+                                color: Colors.purple.shade400,
+                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscureConfirm
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                  color: Colors.grey.shade600,
+                                ),
+                                onPressed: () {
+                                  setState(
+                                    () => _obscureConfirm = !_obscureConfirm,
+                                  );
+                                },
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: _fieldErrors['confirm'] != null
+                                      ? Colors.red.shade300
+                                      : Colors.grey.shade300,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: _fieldErrors['confirm'] != null
+                                      ? Colors.red.shade400
+                                      : Colors.purple.shade400,
+                                  width: 2,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
+                            ),
+                            onChanged: (value) {
+                              _updateFieldError(
+                                'confirm',
+                                _validateConfirmPassword(value),
+                              );
+                            },
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // Register Button
+                          SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _registerUser,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.purple.shade400,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 3,
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      height: 24,
+                                      width: 24,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    )
+                                  : const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          'Đăng ký',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        SizedBox(width: 8),
+                                        Icon(
+                                          Icons.check_circle_outline,
+                                          size: 20,
                                         ),
                                       ],
                                     ),
-                                    child: const Icon(
-                                      Icons.person_add_alt_1,
-                                      size: 50,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                );
-                              },
                             ),
-                            const SizedBox(height: 24),
+                          ),
 
-                            // Title
-                            Text(
-                              'Tạo tài khoản mới',
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey.shade800,
+                          const SizedBox(height: 16),
+
+                          // Divider
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Divider(color: Colors.grey.shade300),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Điền thông tin để bắt đầu',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade600,
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                child: Text(
+                                  'hoặc',
+                                  style: TextStyle(color: Colors.grey.shade600),
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 32),
-
-                            // Email Field
-                            TextFormField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              decoration: InputDecoration(
-                                labelText: 'Email',
-                                prefixIcon: Icon(
-                                  Icons.email_outlined,
-                                  color: Colors.purple.shade400,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade300,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.purple.shade400,
-                                    width: 2,
-                                  ),
-                                ),
-                                errorBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.red.shade300,
-                                  ),
-                                ),
-                                focusedErrorBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.red.shade400,
-                                    width: 2,
-                                  ),
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey.shade50,
+                              Expanded(
+                                child: Divider(color: Colors.grey.shade300),
                               ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Vui lòng nhập email';
-                                }
-                                if (!value.contains('@')) {
-                                  return 'Email không hợp lệ';
-                                }
-                                return null;
-                              },
+                            ],
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Back to Login Button
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.purple.shade600,
                             ),
-                            const SizedBox(height: 16),
-
-                            // Password Field
-                            TextFormField(
-                              controller: _passwordController,
-                              obscureText: _obscurePassword,
-                              decoration: InputDecoration(
-                                labelText: 'Mật khẩu',
-                                prefixIcon: Icon(
-                                  Icons.lock_outline,
-                                  color: Colors.purple.shade400,
-                                ),
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscurePassword
-                                        ? Icons.visibility_off
-                                        : Icons.visibility,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                  onPressed: () {
-                                    setState(
-                                      () =>
-                                          _obscurePassword = !_obscurePassword,
-                                    );
-                                  },
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade300,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.purple.shade400,
-                                    width: 2,
-                                  ),
-                                ),
-                                errorBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.red.shade300,
-                                  ),
-                                ),
-                                focusedErrorBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.red.shade400,
-                                    width: 2,
-                                  ),
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey.shade50,
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Vui lòng nhập mật khẩu';
-                                }
-                                if (value.length < 6) {
-                                  return 'Mật khẩu phải có ít nhất 6 ký tự';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Confirm Password Field
-                            TextFormField(
-                              controller: _confirmController,
-                              obscureText: _obscureConfirm,
-                              decoration: InputDecoration(
-                                labelText: 'Xác nhận mật khẩu',
-                                prefixIcon: Icon(
-                                  Icons.lock_clock_outlined,
-                                  color: Colors.purple.shade400,
-                                ),
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscureConfirm
-                                        ? Icons.visibility_off
-                                        : Icons.visibility,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                  onPressed: () {
-                                    setState(
-                                      () => _obscureConfirm = !_obscureConfirm,
-                                    );
-                                  },
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade300,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.purple.shade400,
-                                    width: 2,
-                                  ),
-                                ),
-                                errorBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.red.shade300,
-                                  ),
-                                ),
-                                focusedErrorBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.red.shade400,
-                                    width: 2,
-                                  ),
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey.shade50,
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Vui lòng xác nhận mật khẩu';
-                                }
-                                if (value != _passwordController.text) {
-                                  return 'Mật khẩu không khớp';
-                                }
-                                return null;
-                              },
-                            ),
-
-                            const SizedBox(height: 24),
-
-                            // Register Button
-                            SizedBox(
-                              width: double.infinity,
-                              height: 50,
-                              child: ElevatedButton(
-                                onPressed: _isLoading ? null : _registerUser,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.purple.shade400,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  elevation: 3,
-                                ),
-                                child: _isLoading
-                                    ? const SizedBox(
-                                        height: 24,
-                                        width: 24,
-                                        child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2.5,
-                                        ),
-                                      )
-                                    : const Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            'Đăng ký',
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          SizedBox(width: 8),
-                                          Icon(
-                                            Icons.check_circle_outline,
-                                            size: 20,
-                                          ),
-                                        ],
-                                      ),
-                              ),
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            // Divider
-                            Row(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Expanded(
-                                  child: Divider(color: Colors.grey.shade300),
+                                Icon(
+                                  Icons.arrow_back,
+                                  size: 18,
+                                  color: Colors.purple.shade600,
                                 ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                  ),
-                                  child: Text(
-                                    'hoặc',
-                                    style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
+                                const SizedBox(width: 4),
+                                const Text(
+                                  'Đã có tài khoản? ',
+                                  style: TextStyle(color: Colors.grey),
                                 ),
-                                Expanded(
-                                  child: Divider(color: Colors.grey.shade300),
+                                Text(
+                                  'Đăng nhập',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.purple.shade600,
+                                  ),
                                 ),
                               ],
                             ),
-
-                            const SizedBox(height: 16),
-
-                            // Back to Login Button
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                              },
-                              style: TextButton.styleFrom(
-                                foregroundColor: Colors.purple.shade600,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.arrow_back,
-                                    size: 18,
-                                    color: Colors.purple.shade600,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Text(
-                                    'Đã có tài khoản? ',
-                                    style: TextStyle(color: Colors.grey),
-                                  ),
-                                  Text(
-                                    'Đăng nhập',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.purple.shade600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

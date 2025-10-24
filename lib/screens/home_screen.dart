@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../providers/steps_provider.dart';
 import '../providers/weight_provider.dart';
 import '../providers/water_provider.dart';
-import '../widgets/quick_action_button.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,6 +15,9 @@ class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late List<Animation<double>> _staggerAnimations;
+
+  // Track hover state cho quick action buttons
+  final Set<int> _hoveredButtons = {};
 
   @override
   void initState() {
@@ -56,11 +58,20 @@ class _HomeScreenState extends State<HomeScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Trang chủ'),
+        title: const Text(
+          'Trang chủ',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
         elevation: 0,
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.black87),
       ),
       body: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 40),
         child: Column(
           children: [
             // Header Goal Card with Animation
@@ -97,7 +108,7 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(24),
                   child: Column(
                     children: [
                       Text(
@@ -108,56 +119,66 @@ class _HomeScreenState extends State<HomeScreen>
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 16),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.directions_walk,
                             color: Colors.white,
-                            size: 28,
+                            size: 32,
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${steps.steps} / ${steps.goal}',
-                            style: const TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'bước',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 16,
-                            ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${steps.steps} / ${steps.goal}',
+                                style: const TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              Text(
+                                'bước',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(10),
                         child: LinearProgressIndicator(
                           value: (steps.steps / steps.goal).clamp(0, 1),
-                          minHeight: 8,
+                          minHeight: 10,
                           backgroundColor: Colors.white.withOpacity(0.2),
                           valueColor: AlwaysStoppedAnimation<Color>(
                             Colors.greenAccent.shade400,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       Text(
                         '${((steps.steps / steps.goal) * 100).toStringAsFixed(0)}% hoàn thành',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
             ),
+
+            const SizedBox(height: 24),
 
             // Stats Cards
             FadeTransition(
@@ -188,7 +209,7 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
 
             // Quick Actions Header
             FadeTransition(
@@ -206,8 +227,9 @@ class _HomeScreenState extends State<HomeScreen>
                     const Text(
                       'Thao tác nhanh',
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
+                        color: Colors.black87,
                       ),
                     ),
                   ],
@@ -215,7 +237,7 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
             // Quick Action Buttons with Stagger
             FadeTransition(
@@ -226,35 +248,50 @@ class _HomeScreenState extends State<HomeScreen>
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     _buildQuickActionButton(
+                      index: 0,
                       icon: Icons.local_drink_outlined,
                       label: 'Thêm nước',
                       color: Colors.blue,
                       onTap: () => Navigator.pushNamed(context, '/water'),
                     ),
                     _buildQuickActionButton(
+                      index: 1,
                       icon: Icons.scale_outlined,
                       label: 'Cân nặng',
                       color: Colors.orange,
                       onTap: () => Navigator.pushNamed(context, '/weight'),
                     ),
                     _buildQuickActionButton(
+                      index: 2,
                       icon: Icons.directions_walk_outlined,
                       label: 'Bước chân',
                       color: Colors.purple,
                       onTap: () => Navigator.pushNamed(context, '/steps'),
                     ),
                     _buildQuickActionButton(
+                      index: 3,
                       icon: Icons.notifications_outlined,
                       label: 'Nhắc nhở',
                       color: Colors.red,
-                      onTap: () {},
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Tính năng đang phát triển'),
+                            backgroundColor: Colors.blue.shade400,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 40),
           ],
         ),
       ),
@@ -269,9 +306,9 @@ class _HomeScreenState extends State<HomeScreen>
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withOpacity(0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+        border: Border.all(color: color.withOpacity(0.25), width: 2),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -279,26 +316,26 @@ class _HomeScreenState extends State<HomeScreen>
         children: [
           Container(
             decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(10),
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
             ),
-            padding: const EdgeInsets.all(8),
-            child: Icon(icon, color: color, size: 20),
+            padding: const EdgeInsets.all(10),
+            child: Icon(icon, color: color, size: 22),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Text(
             label,
             style: TextStyle(
               color: Colors.grey.shade700,
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 18,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
@@ -309,37 +346,79 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildQuickActionButton({
+    required int index,
     required IconData icon,
     required String label,
     required Color color,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.8, end: 1.0).animate(
-          CurvedAnimation(
-            parent: _animationController,
-            curve: Curves.elasticOut,
-          ),
-        ),
-        child: Column(
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(16),
+    final isHovered = _hoveredButtons.contains(index);
+
+    return Flexible(
+      child: MouseRegion(
+        onEnter: (_) {
+          setState(() {
+            _hoveredButtons.add(index);
+          });
+        },
+        onExit: (_) {
+          setState(() {
+            _hoveredButtons.remove(index);
+          });
+        },
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedScale(
+            scale: isHovered ? 1.08 : 1.0,
+            duration: const Duration(milliseconds: 200),
+            child: AnimatedOpacity(
+              opacity: 1.0,
+              duration: const Duration(milliseconds: 200),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    decoration: BoxDecoration(
+                      color: isHovered
+                          ? color.withOpacity(0.25)
+                          : color.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isHovered
+                            ? color.withOpacity(0.4)
+                            : color.withOpacity(0.2),
+                        width: isHovered ? 2 : 1.5,
+                      ),
+                      boxShadow: isHovered
+                          ? [
+                              BoxShadow(
+                                color: color.withOpacity(0.2),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    padding: const EdgeInsets.all(14),
+                    child: Icon(icon, color: color, size: isHovered ? 28 : 26),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isHovered ? FontWeight.w700 : FontWeight.w500,
+                      color: isHovered ? color : Colors.black87,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
-              padding: const EdgeInsets.all(16),
-              child: Icon(icon, color: color, size: 28),
             ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-              textAlign: TextAlign.center,
-            ),
-          ],
+          ),
         ),
       ),
     );

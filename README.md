@@ -324,7 +324,7 @@ app_healthcare
 
 1. **Clone dự án:**
    ```bash
-   git clone https://github.com/<your-username>/app_healthcare.git
-   cd app_healthcare
+   git clone https://github.com/thanhzicne/App_Healthy
+   
 2. **flutter pub get**
 3. **flutter run**
