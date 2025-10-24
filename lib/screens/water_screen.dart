@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'dart:math';
+import '../models/water_intake_model.dart';
+import '../providers/user_provider.dart';
 import '../providers/water_provider.dart';
 import '../widgets/progress_ring.dart';
 
@@ -33,7 +36,7 @@ class _WaterScreenState extends State<WaterScreen>
           parent: _animationController,
           curve: Interval(
             index * 0.15,
-            (index * 0.15) + 0.6,
+            (index * 0.15) + 0.6 > 1.0 ? 1.0 : (index * 0.15) + 0.6,
             curve: Curves.easeOut,
           ),
         ),
@@ -52,6 +55,7 @@ class _WaterScreenState extends State<WaterScreen>
   @override
   Widget build(BuildContext context) {
     final waterProvider = Provider.of<WaterProvider>(context);
+    final userProvider = Provider.of<UserProvider>(context);
     final water = waterProvider.water;
 
     return Scaffold(
@@ -66,6 +70,15 @@ class _WaterScreenState extends State<WaterScreen>
         ),
         elevation: 0,
         backgroundColor: Colors.transparent,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.blue.shade50, Colors.transparent],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+        ),
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -461,7 +474,7 @@ class _WaterScreenState extends State<WaterScreen>
 
               const SizedBox(height: 24),
 
-              // Daily Chart Section (30 days)
+              // Daily Chart Section (7 days)
               FadeTransition(
                 opacity: _staggerAnimations[5],
                 child: Padding(
@@ -478,7 +491,7 @@ class _WaterScreenState extends State<WaterScreen>
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Thống kê theo ngày (30 ngày gần nhất)',
+                            'Thống kê theo ngày (7 ngày gần nhất)',
                             style: GoogleFonts.poppins(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -490,13 +503,17 @@ class _WaterScreenState extends State<WaterScreen>
                       Container(
                         height: 300,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          gradient: LinearGradient(
+                            colors: [Colors.white, Colors.blue.shade50],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.grey.shade200,
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
+                              color: Colors.blue.withOpacity(0.1),
+                              blurRadius: 15,
+                              offset: const Offset(0, 6),
                             ),
                           ],
                         ),
@@ -509,7 +526,7 @@ class _WaterScreenState extends State<WaterScreen>
                               horizontalInterval: water.mlGoal / 5,
                               getDrawingHorizontalLine: (value) {
                                 return FlLine(
-                                  color: Colors.grey.shade200,
+                                  color: Colors.blue.shade100,
                                   strokeWidth: 1,
                                 );
                               },
@@ -524,7 +541,7 @@ class _WaterScreenState extends State<WaterScreen>
                                     return Text(
                                       '${value.toInt()} ml',
                                       style: GoogleFonts.poppins(
-                                        color: Colors.grey.shade600,
+                                        color: Colors.blue.shade600,
                                         fontSize: 12,
                                       ),
                                     );
@@ -535,15 +552,15 @@ class _WaterScreenState extends State<WaterScreen>
                                 sideTitles: SideTitles(
                                   showTitles: true,
                                   reservedSize: 30,
-                                  interval: 5,
+                                  interval: 1,
                                   getTitlesWidget: (value, meta) {
                                     final dayIndex = value.toInt();
-                                    final date = DateTime.now().subtract(
-                                        Duration(days: 29 - dayIndex));
+                                    final date = DateTime.now()
+                                        .subtract(Duration(days: 6 - dayIndex));
                                     return Text(
                                       '${date.day}/${date.month}',
                                       style: GoogleFonts.poppins(
-                                        color: Colors.grey.shade600,
+                                        color: Colors.blue.shade600,
                                         fontSize: 12,
                                       ),
                                     );
@@ -559,7 +576,6 @@ class _WaterScreenState extends State<WaterScreen>
                             ),
                             borderData: FlBorderData(show: false),
                             lineBarsData: [
-                              // Actual intake line
                               LineChartBarData(
                                 spots: _generateDailySpots(water.dailyIntake),
                                 isCurved: true,
@@ -591,7 +607,24 @@ class _WaterScreenState extends State<WaterScreen>
                             ],
                             extraLinesData: ExtraLinesData(
                               horizontalLines: [
-                                // Balanced goal line
+                                HorizontalLine(
+                                  y: water.mlGoal * 1.5,
+                                  color: Colors.red.shade600,
+                                  strokeWidth: 2,
+                                  dashArray: [5, 5],
+                                  label: HorizontalLineLabel(
+                                    show: true,
+                                    alignment: Alignment.topRight,
+                                    padding: const EdgeInsets.only(
+                                        top: 10, right: 10),
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.red.shade600,
+                                      fontSize: 12,
+                                    ),
+                                    labelResolver: (line) =>
+                                        'Vượt mức: ${(water.mlGoal * 1.5).toInt()} ml',
+                                  ),
+                                ),
                                 HorizontalLine(
                                   y: water.mlGoal,
                                   color: Colors.green.shade600,
@@ -599,41 +632,33 @@ class _WaterScreenState extends State<WaterScreen>
                                   dashArray: [5, 5],
                                   label: HorizontalLineLabel(
                                     show: true,
+                                    alignment: Alignment.topRight,
+                                    padding: const EdgeInsets.only(
+                                        top: 10, right: 10),
                                     style: GoogleFonts.poppins(
                                       color: Colors.green.shade600,
                                       fontSize: 12,
                                     ),
-                                    padding: const EdgeInsets.all(4.0),
+                                    labelResolver: (line) =>
+                                        'Mục tiêu: ${water.mlGoal.toInt()} ml',
                                   ),
                                 ),
-                                // Over standard warning line (goal + 20%)
                                 HorizontalLine(
-                                  y: water.mlGoal * 1.2,
-                                  color: Colors.red.shade600,
-                                  strokeWidth: 2,
-                                  dashArray: [5, 5],
-                                  label: HorizontalLineLabel(
-                                    show: true,
-                                    style: GoogleFonts.poppins(
-                                      color: Colors.red.shade600,
-                                      fontSize: 12,
-                                    ),
-                                    padding: const EdgeInsets.all(4.0),
-                                  ),
-                                ),
-                                // Under standard warning line (goal - 20%)
-                                HorizontalLine(
-                                  y: water.mlGoal * 0.8,
+                                  y: water.mlGoal * 0.75,
                                   color: Colors.orange.shade600,
                                   strokeWidth: 2,
                                   dashArray: [5, 5],
                                   label: HorizontalLineLabel(
                                     show: true,
+                                    alignment: Alignment.topRight,
+                                    padding: const EdgeInsets.only(
+                                        top: 10, right: 10),
                                     style: GoogleFonts.poppins(
                                       color: Colors.orange.shade600,
                                       fontSize: 12,
                                     ),
-                                    padding: const EdgeInsets.all(4.0),
+                                    labelResolver: (line) =>
+                                        'Gần đạt: ${(water.mlGoal * 0.75).toInt()} ml',
                                   ),
                                 ),
                               ],
@@ -645,8 +670,8 @@ class _WaterScreenState extends State<WaterScreen>
                                 getTooltipItems: (touchedSpots) {
                                   return touchedSpots.map((spot) {
                                     final dayIndex = spot.x.toInt();
-                                    final date = DateTime.now().subtract(
-                                        Duration(days: 29 - dayIndex));
+                                    final date = DateTime.now()
+                                        .subtract(Duration(days: 6 - dayIndex));
                                     return LineTooltipItem(
                                       '${spot.y.toInt()} ml\n${date.day}/${date.month}/${date.year}',
                                       GoogleFonts.poppins(
@@ -660,7 +685,7 @@ class _WaterScreenState extends State<WaterScreen>
                               ),
                             ),
                             minX: 0,
-                            maxX: 29,
+                            maxX: 6,
                             minY: 0,
                             maxY: _getMaxDailyY(
                                 water.dailyIntake.values, water.mlGoal),
@@ -674,31 +699,12 @@ class _WaterScreenState extends State<WaterScreen>
 
               const SizedBox(height: 24),
 
-              // Statistics Section
+              // Detailed Statistics
               FadeTransition(
                 opacity: _staggerAnimations[5],
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Thống kê',
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildStatsCard('Hôm nay',
-                          waterProvider.getDailyStats(DateTime.now())),
-                      const SizedBox(height: 12),
-                      _buildStatsCard(
-                          'Tháng này',
-                          waterProvider.getMonthlyStats(
-                              DateTime.now().year, DateTime.now().month)),
-                    ],
-                  ),
+                  child: _buildDetailedStatistics(waterProvider, water),
                 ),
               ),
 
@@ -710,66 +716,214 @@ class _WaterScreenState extends State<WaterScreen>
     );
   }
 
-  Widget _buildStatsCard(String title, Map<String, dynamic> stats) {
+  Widget _buildDetailedStatistics(
+      WaterProvider waterProvider, WaterIntakeModel water) {
+    final dailyStats = waterProvider.getDailyStats(DateTime.now());
+    final monthlyStats = waterProvider.getMonthlyStats(
+        DateTime.now().year, DateTime.now().month);
+
+    final intake = dailyStats['intake'] ?? 0.0;
+    final goal = dailyStats['goal'] ?? water.mlGoal;
+    String dailyStatus;
+    Color dailyStatusColor;
+    if (intake > goal * 1.5) {
+      dailyStatus = 'Vượt mức';
+      dailyStatusColor = Colors.red;
+    } else if (intake >= goal) {
+      dailyStatus = 'Đạt';
+      dailyStatusColor = Colors.green;
+    } else if (intake >= goal * 0.75) {
+      dailyStatus = 'Gần đạt';
+      dailyStatusColor = Colors.orange;
+    } else {
+      dailyStatus = 'Chưa đạt';
+      dailyStatusColor = Colors.grey;
+    }
+
+    final goalAchievement = monthlyStats['goalAchievement'] ?? 0.0;
+    final averageDaily = monthlyStats['averageDaily'] ?? 0.0;
+    Color monthlyColor =
+        (goalAchievement >= 100) ? Colors.green : Colors.purple;
+    if (averageDaily > goal * 1.5) {
+      monthlyColor = Colors.red;
+    }
+    bool isTracking = (monthlyStats['daysTracked'] ?? 0) > 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.analytics_outlined, color: Colors.deepPurple.shade400),
+            const SizedBox(width: 8),
+            Text(
+              'Thống kê chi tiết',
+              style: GoogleFonts.poppins(
+                  fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                blurRadius: 10,
+                spreadRadius: 2,
+              )
+            ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.today, color: Colors.blue.shade700),
+                  const SizedBox(width: 8),
+                  Text('Hôm nay',
+                      style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.bold, fontSize: 16)),
+                  const Spacer(),
+                  Chip(
+                    label: Text(dailyStatus,
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold)),
+                    backgroundColor: dailyStatusColor,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  )
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatsInfoCard(
+                        'Lượng nước',
+                        '${intake.toInt()} ml',
+                        Icons.local_drink,
+                        (intake > goal * 1.5) ? Colors.red : Colors.blue),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatsInfoCard('Mục tiêu', '${goal.toInt()} ml',
+                        Icons.flag, Colors.green),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                blurRadius: 10,
+                spreadRadius: 2,
+              )
+            ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.calendar_month, color: Colors.purple.shade400),
+                  const SizedBox(width: 8),
+                  Text('Tháng này',
+                      style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.bold, fontSize: 16)),
+                  const Spacer(),
+                  Chip(
+                    label: Text(
+                        isTracking
+                            ? '${goalAchievement.toStringAsFixed(1)}%'
+                            : 'Chưa theo dõi',
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold)),
+                    backgroundColor: isTracking ? monthlyColor : Colors.grey,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  )
+                ],
+              ),
+              const SizedBox(height: 16),
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.8,
+                children: [
+                  _buildStatsInfoCard(
+                      'Tổng lượng',
+                      '${monthlyStats['totalIntake'].toInt()} ml',
+                      Icons.opacity,
+                      Colors.deepPurple),
+                  _buildStatsInfoCard(
+                      'Trung bình/ngày',
+                      '${averageDaily.toInt()} ml',
+                      Icons.trending_up,
+                      (averageDaily > goal * 1.5) ? Colors.red : Colors.pink),
+                  _buildStatsInfoCard(
+                      'Số ngày theo dõi',
+                      '${monthlyStats['daysTracked']} ngày',
+                      Icons.event_available,
+                      Colors.orange),
+                  _buildStatsInfoCard(
+                      'Tỷ lệ mục tiêu',
+                      '${goalAchievement.isNaN ? 0.0 : goalAchievement.toStringAsFixed(1)}%',
+                      Icons.pie_chart,
+                      Colors.teal),
+                ],
+              ),
+            ],
+          ),
+        )
+      ],
+    );
+  }
+
+  Widget _buildStatsInfoCard(
+      String title, String value, IconData icon, Color color) {
     return Container(
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.shade200,
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.3))),
+      child: Row(
         children: [
-          Text(
-            title,
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+          Icon(icon, color: color, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  value,
+                  style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Color.lerp(color, Colors.black, 0.4)),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                      fontSize: 12, color: Colors.grey.shade700),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 8),
-          if (stats.containsKey('intake'))
-            Text(
-              'Lượng nước: ${stats['intake']} ml',
-              style: GoogleFonts.poppins(fontSize: 14),
-            ),
-          if (stats.containsKey('goal'))
-            Text(
-              'Mục tiêu: ${stats['goal'].toInt()} ml',
-              style: GoogleFonts.poppins(fontSize: 14),
-            ),
-          if (stats.containsKey('status'))
-            Text(
-              'Trạng thái: ${stats['status']}',
-              style: GoogleFonts.poppins(fontSize: 14),
-            ),
-          if (stats.containsKey('totalIntake'))
-            Text(
-              'Tổng lượng nước: ${stats['totalIntake'].toInt()} ml',
-              style: GoogleFonts.poppins(fontSize: 14),
-            ),
-          if (stats.containsKey('averageDaily'))
-            Text(
-              'Trung bình ngày: ${stats['averageDaily'].toInt()} ml',
-              style: GoogleFonts.poppins(fontSize: 14),
-            ),
-          if (stats.containsKey('daysTracked'))
-            Text(
-              'Số ngày theo dõi: ${stats['daysTracked']}',
-              style: GoogleFonts.poppins(fontSize: 14),
-            ),
-          if (stats.containsKey('goalAchievement'))
-            Text(
-              'Tỷ lệ đạt mục tiêu: ${stats['goalAchievement'].toStringAsFixed(1)}%',
-              style: GoogleFonts.poppins(fontSize: 14),
-            ),
+          )
         ],
       ),
     );
@@ -788,29 +942,42 @@ class _WaterScreenState extends State<WaterScreen>
   List<FlSpot> _generateDailySpots(Map<String, int> dailyIntake) {
     List<FlSpot> spots = [];
     final now = DateTime.now();
-    for (int i = 29; i >= 0; i--) {
+    for (int i = 6; i >= 0; i--) {
       final date = now.subtract(Duration(days: i));
       final dateStr = date.toString().substring(0, 10);
       double ml = (dailyIntake[dateStr] ?? 0).toDouble();
-      spots.add(FlSpot((29 - i).toDouble(), ml));
+      if (i == 0) {
+        ml = _water.hourlyIntake.values
+            .fold(0, (sum, val) => sum + val)
+            .toDouble();
+      }
+      spots.add(FlSpot((6 - i).toDouble(), ml));
     }
     return spots;
   }
 
+  WaterIntakeModel get _water =>
+      Provider.of<WaterProvider>(context, listen: false).water;
+
   double _getMaxY(Iterable<int> values) {
     double maxY = 500;
-    for (var value in values) {
-      if (value > maxY) maxY = value.toDouble();
+    if (values.isNotEmpty) {
+      maxY =
+          values.reduce((curr, next) => curr > next ? curr : next).toDouble();
     }
     return (maxY / 200).ceil() * 200;
   }
 
   double _getMaxDailyY(Iterable<int> values, double goal) {
-    double maxY = goal * 1.5;
-    for (var value in values) {
-      if (value > maxY) maxY = value.toDouble();
+    double maxVal = goal * 1.6;
+    if (values.isNotEmpty) {
+      maxVal = max(
+          maxVal,
+          values.reduce((curr, next) => curr > next ? curr : next).toDouble() *
+              1.1);
     }
-    return (maxY / (goal / 5)).ceil() * (goal / 5);
+    final interval = goal / 5;
+    return (maxVal / interval).ceil() * interval;
   }
 
   Widget _buildWaterButton({
@@ -824,6 +991,7 @@ class _WaterScreenState extends State<WaterScreen>
         CurvedAnimation(parent: _animationController, curve: Curves.elasticOut),
       ),
       child: Material(
+        color: Colors.transparent,
         child: InkWell(
           onTap: onPressed,
           borderRadius: BorderRadius.circular(16),
@@ -850,7 +1018,7 @@ class _WaterScreenState extends State<WaterScreen>
                 const SizedBox(height: 8),
                 Text(
                   '+$ml',
-                  style: GoogleFonts.poppins(
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -859,7 +1027,7 @@ class _WaterScreenState extends State<WaterScreen>
                 const SizedBox(height: 4),
                 Text(
                   'ml',
-                  style: GoogleFonts.poppins(
+                  style: TextStyle(
                     color: Colors.white.withOpacity(0.8),
                     fontSize: 12,
                   ),
@@ -873,25 +1041,36 @@ class _WaterScreenState extends State<WaterScreen>
   }
 
   void _addWaterWithFeedback(BuildContext context, int ml) {
-    Provider.of<WaterProvider>(context, listen: false).addWater(ml);
-
-    // Haptic feedback
+    final waterProvider = Provider.of<WaterProvider>(context, listen: false);
+    waterProvider.addWater(ml);
     HapticFeedback.mediumImpact();
 
-    // Snackbar feedback
+    final dailyStats = waterProvider.getDailyStats(DateTime.now());
+    final intake = dailyStats['intake'] ?? 0.0;
+    final goal = dailyStats['goal'] ?? waterProvider.water.mlGoal;
+
+    Color bgColor = Colors.blue.shade600;
+    String message = 'Đã thêm $ml ml nước';
+    IconData icon = Icons.check_circle;
+    if (intake > goal * 1.5) {
+      bgColor = Colors.red.shade600;
+      message = 'Cảnh báo: Bạn đã vượt quá lượng nước khuyến nghị!';
+      icon = Icons.warning;
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.check_circle, color: Colors.white),
+            Icon(icon, color: Colors.white),
             const SizedBox(width: 8),
             Text(
-              'Đã thêm $ml ml nước',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              message,
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ],
         ),
-        backgroundColor: Colors.blue.shade600,
+        backgroundColor: bgColor,
         duration: const Duration(milliseconds: 1500),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

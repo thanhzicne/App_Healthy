@@ -32,14 +32,14 @@ class WaterProvider with ChangeNotifier {
     if (waterDoc.exists) {
       _water =
           WaterIntakeModel.fromJson(waterDoc.data() as Map<String, dynamic>);
-      // Check if reset is needed
       if (_isNewDay(_water.lastResetDate)) {
         await _savePreviousDayTotal();
         await resetDailyIntake();
       }
-      _pruneDailyIntake(); // Keep only last 30 days
-      notifyListeners();
+      _pruneDailyIntake(); // Keep only last 7 days
+      await _updateFirestore(); // Save after pruning
     }
+    notifyListeners();
   }
 
   Future<void> addWater(int ml) async {
@@ -70,7 +70,8 @@ class WaterProvider with ChangeNotifier {
     final now = DateTime.now();
     final keysToRemove = _water.dailyIntake.keys.where((dateStr) {
       final date = DateTime.parse(dateStr);
-      return now.difference(date).inDays > 30;
+      // Change 30 to 7 to keep last 7 days
+      return now.difference(date).inDays >= 7;
     }).toList();
     for (var key in keysToRemove) {
       _water.dailyIntake.remove(key);
@@ -94,7 +95,6 @@ class WaterProvider with ChangeNotifier {
   }
 
   double _calculateWaterGoal(UserModel user) {
-    // Basic formula: 30-35 ml/kg body weight (assuming height-based estimation)
     double baseWeight = user.height * 0.5; // Rough estimate
     double mlPerKg = user.gender == 'Nam' ? 35 : 30;
     if (user.age > 50) mlPerKg -= 5; // Adjust for older age
@@ -103,8 +103,21 @@ class WaterProvider with ChangeNotifier {
 
   // Get daily statistics
   Map<String, dynamic> getDailyStats(DateTime date) {
-    final dateStr = date.toString().substring(0, 10);
-    final intake = _water.dailyIntake[dateStr] ?? 0;
+    final now = DateTime.now();
+    int intake = 0;
+
+    // Check if the requested date is today
+    if (date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day) {
+      // If it's today, sum up the hourly intake for the current total
+      intake = _water.hourlyIntake.values.fold(0, (sum, ml) => sum + ml);
+    } else {
+      // If it's a past day, get it from the daily record
+      final dateStr = date.toString().substring(0, 10);
+      intake = _water.dailyIntake[dateStr] ?? 0;
+    }
+
     return {
       'intake': intake,
       'goal': _water.mlGoal,
@@ -118,18 +131,37 @@ class WaterProvider with ChangeNotifier {
   Map<String, dynamic> getMonthlyStats(int year, int month) {
     double totalIntake = 0;
     int daysTracked = 0;
-    _water.dailyIntake.forEach((dateStr, ml) {
+
+    // Include today's intake in the monthly total
+    final todayIntake =
+        _water.hourlyIntake.values.fold(0, (sum, ml) => sum + ml);
+
+    // Create a temporary map with all data for the month
+    Map<String, int> monthData = Map.from(_water.dailyIntake);
+    final todayStr = DateTime.now().toString().substring(0, 10);
+    monthData[todayStr] = todayIntake;
+
+    monthData.forEach((dateStr, ml) {
       final date = DateTime.parse(dateStr);
       if (date.year == year && date.month == month) {
         totalIntake += ml;
-        daysTracked++;
+        if (ml > 0) {
+          // Only count days where water was tracked
+          daysTracked++;
+        }
       }
     });
+
+    double averageDaily = daysTracked > 0 ? totalIntake / daysTracked : 0;
+    double goalAchievement = daysTracked > 0
+        ? (totalIntake / (_water.mlGoal * daysTracked)) * 100
+        : 0;
+
     return {
       'totalIntake': totalIntake,
-      'averageDaily': daysTracked > 0 ? totalIntake / daysTracked : 0,
+      'averageDaily': averageDaily,
       'daysTracked': daysTracked,
-      'goalAchievement': (totalIntake / (_water.mlGoal * daysTracked)) * 100,
+      'goalAchievement': goalAchievement,
     };
   }
 }

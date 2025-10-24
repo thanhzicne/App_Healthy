@@ -27,7 +27,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => UserProvider()),
+        // *** THAY ĐỔI Ở ĐÂY: Bắt đầu tải dữ liệu ngay khi provider được tạo ***
+        ChangeNotifierProvider(create: (_) => UserProvider()..loadUser()),
         ChangeNotifierProvider(create: (_) => WaterProvider()),
         ChangeNotifierProvider(create: (_) => WeightProvider()),
         ChangeNotifierProvider(create: (_) => StepsProvider()),
@@ -59,16 +60,8 @@ class AuthWrapper extends StatelessWidget {
 
   // Hàm helper để tải tất cả dữ liệu ban đầu một cách an toàn
   Future<void> _loadInitialData(BuildContext context) async {
-    // Dùng read vì đây là hành động một lần, không cần rebuild widget này
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-
-    // Chỉ tải các provider khác sau khi đã chắc chắn có thông tin người dùng
-    if (userProvider.user.email.isEmpty) {
-      // Kiểm tra để tránh load lại không cần thiết
-      await userProvider.loadUser();
-    }
-
-    // Tải các dữ liệu khác
+    // Dữ liệu người dùng đã bắt đầu tải từ trước
+    // Giờ chúng ta chỉ cần tải các dữ liệu phụ thuộc
     await Future.wait([
       Provider.of<WaterProvider>(context, listen: false).loadWater(),
       Provider.of<WeightProvider>(context, listen: false).loadWeight(),
