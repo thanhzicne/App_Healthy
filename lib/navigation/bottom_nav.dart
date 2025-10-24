@@ -21,8 +21,8 @@ class _BottomNavState extends State<BottomNav> {
     StepsScreen(),
     WeightScreen(),
     WaterScreen(),
-    NewsScreen(), // Màn hình thứ 6 (index 5)
-    ProfileScreen()
+    ProfileScreen(),
+    NewsScreen() // Màn hình thứ 6 (index 5)
   ];
 
   void _onItemTapped(int index) {

@@ -4,9 +4,13 @@ import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../models/water_intake_model.dart';
 
+// Import NotificationService
+// import '../services/notification_service.dart';
+
 class WaterProvider with ChangeNotifier {
   WaterIntakeModel _water = WaterIntakeModel();
   UserModel? _user;
+  // final _notificationService = NotificationService();
 
   WaterIntakeModel get water => _water;
   UserModel? get user => _user;
@@ -36,9 +40,13 @@ class WaterProvider with ChangeNotifier {
         await _savePreviousDayTotal();
         await resetDailyIntake();
       }
-      _pruneDailyIntake(); // Keep only last 7 days
-      await _updateFirestore(); // Save after pruning
+      _pruneDailyIntake();
+      await _updateFirestore();
     }
+
+    // Lên lịch thông báo nhắc nhở
+    // await _setupDailyReminders();
+
     notifyListeners();
   }
 
@@ -47,7 +55,12 @@ class WaterProvider with ChangeNotifier {
     String hourKey = DateTime.now().toString().substring(11, 13) + ":00";
     _water.cupsDrunk += (ml / 250).floor();
     _water.hourlyIntake[hourKey] = (_water.hourlyIntake[hourKey] ?? 0) + ml;
+
     await _updateFirestore();
+
+    // Kiểm tra và thông báo nếu cần
+    await _checkProgressAndNotify();
+
     notifyListeners();
   }
 
@@ -70,7 +83,6 @@ class WaterProvider with ChangeNotifier {
     final now = DateTime.now();
     final keysToRemove = _water.dailyIntake.keys.where((dateStr) {
       final date = DateTime.parse(dateStr);
-      // Change 30 to 7 to keep last 7 days
       return now.difference(date).inDays >= 7;
     }).toList();
     for (var key in keysToRemove) {
@@ -95,10 +107,55 @@ class WaterProvider with ChangeNotifier {
   }
 
   double _calculateWaterGoal(UserModel user) {
-    double baseWeight = user.height * 0.5; // Rough estimate
+    double baseWeight = user.height * 0.5;
     double mlPerKg = user.gender == 'Nam' ? 35 : 30;
-    if (user.age > 50) mlPerKg -= 5; // Adjust for older age
+    if (user.age > 50) mlPerKg -= 5;
     return baseWeight * mlPerKg;
+  }
+
+  // Thiết lập thông báo nhắc nhở hàng ngày
+  Future<void> _setupDailyReminders() async {
+    // Uncomment để kích hoạt
+    // await _notificationService.scheduleDailyReminders(
+    //   hours: [9, 12, 15, 18, 21], // Nhắc vào 9h, 12h, 15h, 18h, 21h
+    // );
+  }
+
+  // Kiểm tra tiến độ và gửi thông báo
+  Future<void> _checkProgressAndNotify() async {
+    final currentIntake = getCurrentDailyIntake();
+    final hour = DateTime.now().hour;
+
+    // Chỉ thông báo vào các mốc giờ nhất định (10h, 14h, 18h, 20h)
+    if ([10, 14, 18, 20].contains(hour)) {
+      final expectedIntake = _getExpectedIntakeByTime(hour);
+
+      if (currentIntake < expectedIntake) {
+        // Uncomment để kích hoạt
+        // await _notificationService.checkAndNotify(
+        //   currentIntake: currentIntake.toDouble(),
+        //   goal: _water.mlGoal,
+        // );
+      }
+    }
+  }
+
+  // Tính lượng nước dự kiến uống được theo giờ
+  double _getExpectedIntakeByTime(int hour) {
+    // Phân bổ mục tiêu theo thời gian trong ngày
+    // 6h-12h: 30%, 12h-18h: 40%, 18h-22h: 30%
+    if (hour < 12) {
+      return _water.mlGoal * 0.3 * (hour - 6) / 6;
+    } else if (hour < 18) {
+      return _water.mlGoal * 0.3 + _water.mlGoal * 0.4 * (hour - 12) / 6;
+    } else {
+      return _water.mlGoal * 0.7 + _water.mlGoal * 0.3 * (hour - 18) / 4;
+    }
+  }
+
+  // Lấy lượng nước đã uống trong ngày
+  double getCurrentDailyIntake() {
+    return _water.hourlyIntake.values.fold(0, (sum, ml) => sum + ml).toDouble();
   }
 
   // Get daily statistics
@@ -106,14 +163,11 @@ class WaterProvider with ChangeNotifier {
     final now = DateTime.now();
     int intake = 0;
 
-    // Check if the requested date is today
     if (date.year == now.year &&
         date.month == now.month &&
         date.day == now.day) {
-      // If it's today, sum up the hourly intake for the current total
       intake = _water.hourlyIntake.values.fold(0, (sum, ml) => sum + ml);
     } else {
-      // If it's a past day, get it from the daily record
       final dateStr = date.toString().substring(0, 10);
       intake = _water.dailyIntake[dateStr] ?? 0;
     }
@@ -132,11 +186,9 @@ class WaterProvider with ChangeNotifier {
     double totalIntake = 0;
     int daysTracked = 0;
 
-    // Include today's intake in the monthly total
     final todayIntake =
         _water.hourlyIntake.values.fold(0, (sum, ml) => sum + ml);
 
-    // Create a temporary map with all data for the month
     Map<String, int> monthData = Map.from(_water.dailyIntake);
     final todayStr = DateTime.now().toString().substring(0, 10);
     monthData[todayStr] = todayIntake;
@@ -146,7 +198,6 @@ class WaterProvider with ChangeNotifier {
       if (date.year == year && date.month == month) {
         totalIntake += ml;
         if (ml > 0) {
-          // Only count days where water was tracked
           daysTracked++;
         }
       }
@@ -163,5 +214,15 @@ class WaterProvider with ChangeNotifier {
       'daysTracked': daysTracked,
       'goalAchievement': goalAchievement,
     };
+  }
+
+  // Phương thức để người dùng test thông báo
+  Future<void> testNotification() async {
+    final currentIntake = getCurrentDailyIntake();
+    // Uncomment để kích hoạt
+    // await _notificationService.checkAndNotify(
+    //   currentIntake: currentIntake,
+    //   goal: _water.mlGoal,
+    // );
   }
 }
