@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../providers/weight_provider.dart';
 import '../providers/user_provider.dart';
 import '../models/weight_model.dart';
@@ -27,7 +28,7 @@ class _WeightScreenState extends State<WeightScreen>
     );
 
     _staggerAnimations = List.generate(
-      4,
+      6,
       (index) => Tween<double>(begin: 0, end: 1).animate(
         CurvedAnimation(
           parent: _animationController,
@@ -41,6 +42,10 @@ class _WeightScreenState extends State<WeightScreen>
     );
 
     _animationController.forward();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<WeightProvider>().loadWeight();
+    });
   }
 
   @override
@@ -51,34 +56,73 @@ class _WeightScreenState extends State<WeightScreen>
   }
 
   String _getBMICategory(double bmi) {
-    if (bmi < 18.5) {
-      return 'Thiếu cân';
-    } else if (bmi < 25) {
-      return 'Bình thường';
-    } else if (bmi < 30) {
-      return 'Thừa cân';
-    } else {
-      return 'Béo phì';
-    }
+    if (bmi < 18.5) return 'Thiếu cân';
+    if (bmi < 25) return 'Bình thường';
+    if (bmi < 30) return 'Thừa cân';
+    return 'Béo phì';
   }
 
   Color _getBMIColor(double bmi) {
-    if (bmi < 18.5) {
-      return Colors.blue;
-    } else if (bmi < 25) {
-      return Colors.green;
-    } else if (bmi < 30) {
-      return Colors.orange;
-    } else {
-      return Colors.red;
-    }
+    if (bmi < 18.5) return Colors.blue;
+    if (bmi < 25) return Colors.green;
+    if (bmi < 30) return Colors.orange;
+    return Colors.red;
   }
 
   @override
   Widget build(BuildContext context) {
-    final weight = context.watch<WeightProvider>().weight;
+    final weightProvider = context.watch<WeightProvider>();
+    final weight = weightProvider.weight;
     final bmiCategory = _getBMICategory(weight.bmi);
     final bmiColor = _getBMIColor(weight.bmi);
+
+    // Lọc dữ liệu cho biểu đồ
+    final now = DateTime.now();
+    final todayWeights = weightProvider.weights
+        .where((w) =>
+            w.dateTime.year == now.year &&
+            w.dateTime.month == now.month &&
+            w.dateTime.day == now.day)
+        .toList();
+
+    final sevenDaysAgo = now.subtract(const Duration(days: 6));
+    final recent = weightProvider.weights
+        .where((w) => !w.dateTime.isBefore(sevenDaysAgo))
+        .toList();
+    final dailyLast = <String, WeightModel>{};
+    for (final w in recent) {
+      final dayKey = DateFormat('yyyy-MM-dd').format(w.dateTime);
+      dailyLast[dayKey] = w;
+    }
+    final sevenDayWeights = dailyLast.values.toList()
+      ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+
+    // ================= LOGIC MỚI CHO THẺ MỤC TIÊU =================
+    const double targetWeight = 60.0;
+    final double currentWeight = weight.currentWeight;
+
+    String goalLabel;
+    double weightDifference;
+    IconData goalIcon;
+    Color goalColor;
+
+    if (currentWeight > targetWeight) {
+      goalLabel = 'Cần giảm';
+      weightDifference = currentWeight - targetWeight;
+      goalIcon = Icons.trending_down;
+      goalColor = Colors.red;
+    } else if (currentWeight < targetWeight) {
+      goalLabel = 'Cần tăng';
+      weightDifference = targetWeight - currentWeight;
+      goalIcon = Icons.trending_up;
+      goalColor = Colors.green;
+    } else {
+      goalLabel = 'Đạt mục tiêu';
+      weightDifference = 0;
+      goalIcon = Icons.check_circle_outline;
+      goalColor = Colors.blue;
+    }
+    // ==============================================================
 
     return Scaffold(
       appBar: AppBar(
@@ -89,236 +133,38 @@ class _WeightScreenState extends State<WeightScreen>
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Main Weight Display Card
             FadeTransition(
-              opacity: _staggerAnimations[0],
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, -0.3),
-                  end: Offset.zero,
-                ).animate(
-                  CurvedAnimation(
-                    parent: _animationController,
-                    curve: Curves.easeOut,
-                  ),
-                ),
-                child: Container(
-                  margin: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.orange.shade300, Colors.orange.shade600],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.orange.withOpacity(0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    children: [
-                      Text(
-                        'Cân nặng hiện tại',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(
-                          begin: weight.currentWeight - 5,
-                          end: weight.currentWeight,
-                        ),
-                        duration: const Duration(milliseconds: 1000),
-                        builder: (context, value, child) {
-                          return Text(
-                            '${value.toStringAsFixed(1)}',
-                            style: const TextStyle(
-                              fontSize: 56,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'kg',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // BMI Card
+                opacity: _staggerAnimations[0], child: _buildMainCard(weight)),
             FadeTransition(
-              opacity: _staggerAnimations[1],
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: bmiColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: bmiColor.withOpacity(0.3),
-                      width: 2,
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Chỉ số BMI',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade700,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              TweenAnimationBuilder<double>(
-                                tween: Tween(
-                                  begin: weight.bmi - 2,
-                                  end: weight.bmi,
-                                ),
-                                duration: const Duration(milliseconds: 1000),
-                                builder: (context, value, child) {
-                                  return Text(
-                                    '${value.toStringAsFixed(1)}',
-                                    style: TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: bmiColor,
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: bmiColor.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 8,
-                            ),
-                            child: Text(
-                              bmiCategory,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: bmiColor,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: (weight.bmi / 40).clamp(0, 1),
-                          minHeight: 6,
-                          backgroundColor: Colors.grey.shade300,
-                          valueColor: AlwaysStoppedAnimation<Color>(bmiColor),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Thiếu cân',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                          Text(
-                            'Bình thường',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                          Text(
-                            'Thừa cân',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                          Text(
-                            'Béo phì',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Info Cards
+                opacity: _staggerAnimations[1],
+                child: _buildBMICard(bmiCategory, bmiColor, weight.bmi)),
+            const SizedBox(height: 20),
             FadeTransition(
               opacity: _staggerAnimations[2],
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
+                    // Thẻ mục tiêu
                     Expanded(
-                      child: _buildInfoCard(
-                        icon: Icons.trending_down,
-                        label: 'Mục tiêu',
-                        value: '60 kg',
-                        color: Colors.blue,
-                      ),
-                    ),
+                        child: _buildInfoCard(
+                            Icons.flag_outlined,
+                            'Mục tiêu',
+                            '${targetWeight.toStringAsFixed(1)} kg',
+                            Colors.blue)),
                     const SizedBox(width: 12),
+                    // Thẻ cần tăng/giảm (đã được cập nhật)
                     Expanded(
-                      child: _buildInfoCard(
-                        icon: Icons.assessment,
-                        label: 'Cần giảm',
-                        value:
-                            '${(weight.currentWeight - 60).toStringAsFixed(1)} kg',
-                        color: Colors.red,
-                      ),
-                    ),
+                        child: _buildInfoCard(
+                            goalIcon,
+                            goalLabel,
+                            '${weightDifference.toStringAsFixed(1)} kg',
+                            goalColor)),
                   ],
                 ),
               ),
             ),
-
             const SizedBox(height: 20),
-
-            // Update Button
             FadeTransition(
               opacity: _staggerAnimations[3],
               child: Padding(
@@ -328,66 +174,81 @@ class _WeightScreenState extends State<WeightScreen>
                   child: ElevatedButton.icon(
                     onPressed: () => _showWeightDialog(context),
                     icon: const Icon(Icons.add_circle_outline),
-                    label: const Text(
-                      'Cập nhật cân nặng',
-                      style: TextStyle(fontSize: 16),
-                    ),
+                    label: const Text('Cập nhật cân nặng',
+                        style: TextStyle(fontSize: 16)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.orange.shade600,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                          borderRadius: BorderRadius.circular(12)),
                       elevation: 4,
                     ),
                   ),
                 ),
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            // Chart Section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.bar_chart_rounded,
-                        color: Colors.orange.shade600,
-                        size: 24,
-                      ),
+            const SizedBox(height: 24),
+            FadeTransition(
+              opacity: _staggerAnimations[4],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Icon(Icons.timeline,
+                          color: Colors.orange.shade600, size: 24),
                       const SizedBox(width: 8),
-                      const Text(
-                        'Biểu đồ cân nặng',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade200, width: 1),
+                      const Text('Biểu đồ trong ngày',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold)),
+                    ]),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 220,
+                      child: todayWeights.isEmpty
+                          ? const Center(
+                              child: Text(
+                                  'Chưa có dữ liệu hôm nay\n(Cập nhật để xem biểu đồ)',
+                                  textAlign: TextAlign.center))
+                          : ChartWidget(weights: todayWeights, isDaily: true),
                     ),
-                    padding: const EdgeInsets.all(12),
-                    child: ChartWidget(
-                      chart: const SizedBox(),
-                      title: 'Biểu đồ cân nặng',
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-
+            const SizedBox(height: 24),
+            FadeTransition(
+              opacity: _staggerAnimations[5],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Icon(Icons.bar_chart,
+                          color: Colors.orange.shade600, size: 24),
+                      const SizedBox(width: 8),
+                      const Text('Biểu đồ 7 ngày',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold)),
+                    ]),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 220,
+                      child: sevenDayWeights.isEmpty
+                          ? const Center(
+                              child: Text(
+                                  'Chưa có dữ liệu 7 ngày\n(Cập nhật nhiều ngày để xem)',
+                                  textAlign: TextAlign.center))
+                          : ChartWidget(
+                              weights: sevenDayWeights, isDaily: false),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 24),
           ],
         ),
@@ -395,188 +256,250 @@ class _WeightScreenState extends State<WeightScreen>
     );
   }
 
-  Widget _buildInfoCard({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
+  Widget _buildMainCard(WeightModel weight) {
+    return SlideTransition(
+      position:
+          Tween<Offset>(begin: const Offset(0, -0.3), end: Offset.zero).animate(
+        CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+      ),
+      child: Container(
+        margin: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+              colors: [Colors.orange.shade300, Colors.orange.shade600],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.orange.withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10))
+          ],
+        ),
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          children: [
+            const Text('Cân nặng hiện tại',
+                style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500)),
+            const SizedBox(height: 16),
+            TweenAnimationBuilder<double>(
+              tween: Tween(
+                  begin: weight.currentWeight - 5, end: weight.currentWeight),
+              duration: const Duration(milliseconds: 1000),
+              builder: (context, value, child) => Text(
+                  '${value.toStringAsFixed(1)}',
+                  style: const TextStyle(
+                      fontSize: 56,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white)),
+            ),
+            const SizedBox(height: 8),
+            const Text('kg',
+                style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBMICard(String category, Color color, double bmi) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withOpacity(0.3), width: 2)),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Chỉ số BMI',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF757575),
+                        fontWeight: FontWeight.w500)),
+                const SizedBox(height: 4),
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: bmi - 2, end: bmi),
+                  duration: const Duration(milliseconds: 1000),
+                  builder: (context, value, child) => Text(
+                      '${value.toStringAsFixed(1)}',
+                      style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: color)),
+                ),
+              ]),
+              Container(
+                decoration: BoxDecoration(
+                    color: color.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                child: Text(category,
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: color)),
+              ),
+            ]),
+            const SizedBox(height: 16),
+            ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: (bmi / 40).clamp(0, 1),
+                  minHeight: 6,
+                  backgroundColor: Colors.grey.shade300,
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                )),
+            const SizedBox(height: 10),
+            const Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Thiếu cân',
+                      style: TextStyle(fontSize: 10, color: Color(0xFF9E9E9E))),
+                  Text('Bình thường',
+                      style: TextStyle(fontSize: 10, color: Color(0xFF9E9E9E))),
+                  Text('Thừa cân',
+                      style: TextStyle(fontSize: 10, color: Color(0xFF9E9E9E))),
+                  Text('Béo phì',
+                      style: TextStyle(fontSize: 10, color: Color(0xFF9E9E9E))),
+                ]),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoCard(
+      IconData icon, String label, String value, Color color) {
     return Container(
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3), width: 1.5),
-      ),
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.3), width: 1.5)),
       padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
             decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(10),
-            ),
+                color: color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10)),
             padding: const EdgeInsets.all(8),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            label,
+            child: Icon(icon, color: color, size: 18)),
+        const SizedBox(height: 10),
+        Text(label,
             style: TextStyle(
-              color: Colors.grey.shade700,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            value,
+                color: Colors.grey.shade700,
+                fontSize: 11,
+                fontWeight: FontWeight.w500)),
+        const SizedBox(height: 3),
+        Text(value,
             style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-        ],
-      ),
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87)),
+      ]),
     );
   }
 
   void _showWeightDialog(BuildContext context) {
     final weightProvider = context.read<WeightProvider>();
     final userProvider = context.read<UserProvider>();
-    weightController.text = weightProvider.weight.currentWeight.toString();
+    weightController.text =
+        weightProvider.weight.currentWeight.toStringAsFixed(1);
 
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => ScaleTransition(
-        scale: Tween<double>(begin: 0.8, end: 1.0).animate(
-          CurvedAnimation(
-            parent:
-                ModalRoute.of(context)?.controller ?? AlwaysStoppedAnimation(1),
-            curve: Curves.elasticOut,
+      builder: (context) => AlertDialog(
+        title: Row(children: [
+          Icon(Icons.scale, color: Colors.orange.shade600),
+          const SizedBox(width: 8),
+          const Text('Cập nhật cân nặng')
+        ]),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(
+            controller: weightController,
+            decoration: InputDecoration(
+              labelText: 'Cân nặng (kg)',
+              prefixIcon:
+                  Icon(Icons.scale_outlined, color: Colors.orange.shade600),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide:
+                      BorderSide(color: Colors.orange.shade600, width: 2)),
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            autofocus: true,
           ),
-        ),
-        child: AlertDialog(
-          title: Row(
-            children: [
-              Icon(Icons.scale, color: Colors.orange.shade600),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8)),
+            padding: const EdgeInsets.all(10),
+            child: Row(children: [
+              Icon(Icons.info_outline, color: Colors.orange.shade600, size: 18),
               const SizedBox(width: 8),
-              const Text('Cập nhật cân nặng'),
-            ],
+              Expanded(
+                  child: Text('Nhập cân nặng hiện tại của bạn',
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.orange.shade700))),
+            ]),
           ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: weightController,
-                  decoration: InputDecoration(
-                    labelText: 'Cân nặng (kg)',
-                    prefixIcon: Icon(
-                      Icons.scale_outlined,
-                      color: Colors.orange.shade600,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(
-                        color: Colors.orange.shade600,
-                        width: 2,
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  keyboardType: TextInputType.numberWithOptions(decimal: true),
-                  autofocus: true,
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  padding: const EdgeInsets.all(10),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        color: Colors.orange.shade600,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Nhập cân nặng hiện tại của bạn',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.orange.shade700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
+        ])),
+        actions: [
+          TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Hủy', style: TextStyle(color: Colors.grey.shade600)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final newWeight = WeightModel(
-                  currentWeight: double.parse(weightController.text),
-                  bmi: weightProvider.weight.bmi,
-                );
-                // Pass both newWeight AND userHeight
-                weightProvider.updateWeight(
-                  newWeight,
-                  userProvider.user.height,
-                );
-                Navigator.pop(context);
-
-                // Success feedback
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: [
-                        const Icon(Icons.check_circle, color: Colors.white),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Cập nhật cân nặng thành công',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                    backgroundColor: Colors.green.shade600,
-                    duration: const Duration(milliseconds: 1500),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    margin: const EdgeInsets.all(16),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange.shade600,
+              child:
+                  Text('Hủy', style: TextStyle(color: Colors.grey.shade600))),
+          ElevatedButton(
+            onPressed: () {
+              final newWeight = WeightModel(
+                  currentWeight: double.tryParse(weightController.text) ?? 0);
+              weightProvider.updateWeight(newWeight, userProvider.user.height);
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: const Row(children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('Cập nhật thành công',
+                      style: TextStyle(fontWeight: FontWeight.w600))
+                ]),
+                backgroundColor: Colors.green.shade600,
+                duration: const Duration(milliseconds: 1500),
+                behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('Lưu'),
+                    borderRadius: BorderRadius.circular(10)),
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ));
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange.shade600,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+              elevation: 2,
             ),
-          ],
-        ),
+            child: const Text('Lưu',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+        ],
       ),
     );
   }

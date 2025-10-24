@@ -66,16 +66,15 @@ class _StepsScreenState extends State<StepsScreen>
             FadeTransition(
               opacity: _staggerAnimations[0],
               child: SlideTransition(
-                position:
-                    Tween<Offset>(
-                      begin: const Offset(0, -0.3),
-                      end: Offset.zero,
-                    ).animate(
-                      CurvedAnimation(
-                        parent: _animationController,
-                        curve: Curves.easeOut,
-                      ),
-                    ),
+                position: Tween<Offset>(
+                  begin: const Offset(0, -0.3),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(
+                    parent: _animationController,
+                    curve: Curves.easeOut,
+                  ),
+                ),
                 child: Container(
                   margin: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -328,11 +327,11 @@ class _StepsScreenState extends State<StepsScreen>
                         ),
                       ),
                       padding: const EdgeInsets.all(12),
-                      child: ChartWidget(
-                        chart: const SizedBox(),
-                        title: 'Thống kê chi tiết',
-                      ),
+                      // child: ChartWidget(
+                      //  chart: const SizedBox(),
+                      //  title: 'Thống kê chi tiết',
                     ),
+                    //),
                   ],
                 ),
               ),

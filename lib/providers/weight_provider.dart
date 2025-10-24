@@ -5,9 +5,11 @@ import '../models/weight_model.dart';
 import '../utils/helpers.dart';
 
 class WeightProvider with ChangeNotifier {
-  WeightModel _weight = WeightModel();
+  List<WeightModel> _weights = [];
+  WeightModel _currentWeight = WeightModel();
 
-  WeightModel get weight => _weight;
+  List<WeightModel> get weights => _weights;
+  WeightModel get weight => _currentWeight;
 
   Future<void> loadWeight() async {
     if (FirebaseAuth.instance.currentUser == null) return;
@@ -18,7 +20,13 @@ class WeightProvider with ChangeNotifier {
           await FirebaseFirestore.instance.collection('weights').doc(uid).get();
 
       if (doc.exists) {
-        _weight = WeightModel.fromJson(doc.data() as Map<String, dynamic>);
+        var data = doc.data() as Map<String, dynamic>;
+        _weights = (data['history'] as List<dynamic>? ?? [])
+            .map((json) => WeightModel.fromJson(json as Map<String, dynamic>))
+            .toList();
+        // Sort theo dateTime tăng dần
+        _weights.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+        _currentWeight = _weights.isNotEmpty ? _weights.last : WeightModel();
         notifyListeners();
       }
     } catch (e) {
@@ -32,18 +40,20 @@ class WeightProvider with ChangeNotifier {
     try {
       String uid = FirebaseAuth.instance.currentUser!.uid;
 
-      // Calculate BMI with provided height
-      newWeight.bmi = calculateBMI(
-        newWeight.currentWeight,
-        userHeight,
-      );
+      // Calculate BMI
+      newWeight.bmi = calculateBMI(newWeight.currentWeight, userHeight);
+
+      // Update history
+      _weights.add(newWeight);
+      // Sort lại
+      _weights.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+      _currentWeight = newWeight;
 
       await FirebaseFirestore.instance
           .collection('weights')
           .doc(uid)
-          .set(newWeight.toJson());
+          .set({'history': _weights.map((w) => w.toJson()).toList()});
 
-      _weight = newWeight;
       notifyListeners();
     } catch (e) {
       print('Error updating weight: $e');
