@@ -47,24 +47,15 @@
 	<true/>
 	
 	<!-- ========================================
-	     IMAGE PICKER & CAMERA PERMISSIONS
-	     ======================================== -->
+	    IMAGE PICKER & CAMERA PERMISSIONS
+	======================================== -->
 	
-	<!-- Camera Permission (required for taking photos) -->
-	<key>NSCameraUsageDescription</key>
-	<string>Ứng dụng cần truy cập camera để chụp ảnh đại diện cho hồ sơ của bạn.</string>
-	
-	<!-- Photo Library Permission (required for selecting photos) -->
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Ứng dụng cần truy cập thư viện ảnh để bạn có thể chọn ảnh đại diện từ các ảnh của bạn.</string>
-	
-	<!-- Photo Library Add Permission (required for saving photos) -->
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Ứng dụng cần lưu ảnh đã chụp vào thư viện ảnh của bạn.</string>
-	
-	<!-- Microphone Permission (optional - if needed for video) -->
+	<string>Ứng dụng cần truy cập thư viện để bạn có thể chọn ảnh đại diện.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Ứng dụng cần truy cập camera để bạn có thể chụp ảnh đại diện mới.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Ứng dụng cần truy cập microphone nếu bạn muốn quay video.</string>
+	<string>Ứng dụng cần truy cập micro để ghi âm khi quay video (nếu có).</string>
 	
 </dict>
 </plist>

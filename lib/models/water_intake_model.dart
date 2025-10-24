@@ -30,7 +30,7 @@ class WaterIntakeModel {
       WaterIntakeModel(
         cupsDrunk: json['cupsDrunk'] ?? 0,
         totalCups: json['totalCups'] ?? 8,
-        mlGoal: json['mlGoal'] ?? 2000,
+        mlGoal: (json['mlGoal'] ?? 2000.0).toDouble(),
         hourlyIntake: Map<String, int>.from(json['hourlyIntake'] ?? {}),
         dailyIntake: Map<String, int>.from(json['dailyIntake'] ?? {}),
         lastResetDate: json['lastResetDate'] != null
