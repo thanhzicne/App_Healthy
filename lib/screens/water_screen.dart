@@ -1466,7 +1466,8 @@ class _WaterScreenState extends State<WaterScreen>
                 ),
               ),
 
-              const SizedBox(height: 30),
+              const SizedBox(height: 24),
+              const SizedBox(height: 80),
             ],
           ),
         ),

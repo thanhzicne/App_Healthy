@@ -1,14 +1,15 @@
-// file: user_provider.dart
-
+// lib/providers/user_provider.dart
+import 'dart:io' as io;
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'dart:io';
-import 'dart:typed_data';
+import 'package:path/path.dart' as p;
 import '../models/user_model.dart';
 
 class UserProvider with ChangeNotifier {
+  // ... (UserModel _user, getters, Firestore/Storage/Auth instances) ...
   UserModel _user = UserModel(
     name: 'User',
     email: '',
@@ -24,22 +25,24 @@ class UserProvider with ChangeNotifier {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Tải dữ liệu người dùng từ Firestore
+  // ... (loadUser and updateUser methods remain the same) ...
   Future<void> loadUser() async {
+    // ... (implementation from previous step)
     try {
       final currentUser = _auth.currentUser;
       if (currentUser != null) {
         final doc =
-        await _firestore.collection('users').doc(currentUser.uid).get();
-        if (doc.exists) {
-          _user = UserModel.fromJson(doc.data() ?? {});
+            await _firestore.collection('users').doc(currentUser.uid).get();
+        if (doc.exists && doc.data() != null) {
+          _user = UserModel.fromJson(doc.data()!);
 
-          // FIX: Kiểm tra và sửa avatarUrl không hợp lệ
+          // FIX: Kiểm tra xem avatarUrl có phải là URL hợp lệ (bắt đầu bằng http) hay không
           if (_user.avatarUrl != null &&
               _user.avatarUrl!.isNotEmpty &&
-              !_user.avatarUrl!.contains('firebasestorage.googleapis.com')) {
+              !_user.avatarUrl!.startsWith('http')) {
             if (kDebugMode) {
-              print('Invalid avatarUrl detected, clearing: ${_user.avatarUrl}');
+              print(
+                  'Invalid or non-Firebase Storage URL detected, clearing: ${_user.avatarUrl}');
             }
             // Xóa avatarUrl không hợp lệ
             _user = _user.copyWith(avatarUrl: null);
@@ -58,7 +61,7 @@ class UserProvider with ChangeNotifier {
             gender: 'Chưa cập nhật',
             age: 0,
             height: 0,
-            avatarUrl: null, // Không dùng photoURL từ Google
+            avatarUrl: currentUser.photoURL, // Giữ ảnh gốc từ provider
           );
           await _firestore
               .collection('users')
@@ -74,8 +77,9 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  // Cập nhật thông tin người dùng
+  // Cập nhật thông tin người dùng (cho các trường như tên, tuổi, chiều cao)
   Future<void> updateUser(UserModel newUser) async {
+    // ... (implementation from previous step)
     try {
       final currentUser = _auth.currentUser;
       if (currentUser != null) {
@@ -94,88 +98,125 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  // --- PHẦN ĐÃ TÁI CẤU TRÚC (REFACTORED & FIXED) ---
-
-  // Hàm private xử lý logic upload chung cho cả Mobile và Web
+  // Internal upload function - always takes bytes
   Future<String> _internalUploadAvatar(
-      {File? imageFile, Uint8List? imageBytes}) async {
+      Uint8List imageBytes, String originalFileName) async {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) {
+      throw Exception('User not authenticated');
+    }
+
+    final oldAvatarUrl = _user.avatarUrl; // Store old URL
+
+    final fileExtension = p.extension(originalFileName);
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final fileName = 'avatars/${currentUser.uid}_$timestamp$fileExtension';
+    final ref = _storage.ref().child(fileName);
+
+    if (kDebugMode) {
+      print('Uploading to: $fileName'); // You are seeing this log
+    }
+
+    final metadata = SettableMetadata(
+      contentType: 'image/${fileExtension.substring(1)}',
+    );
+
+    UploadTask uploadTask = ref.putData(imageBytes, metadata);
+
+    // *** ADDED: Listen to task events for detailed logging ***
+    uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+      if (kDebugMode) {
+        print(
+            'Upload Task State: ${snapshot.state} (${snapshot.bytesTransferred}/${snapshot.totalBytes})');
+      }
+    }, onError: (Object error) {
+      // This will catch errors specifically during the upload process
+      if (kDebugMode) {
+        print('!!! Upload Task Error: $error');
+      }
+      // Consider propagating this error or handling it appropriately
+    });
+
     try {
-      final currentUser = _auth.currentUser;
-      if (currentUser == null) {
-        throw Exception('User not authenticated');
-      }
-
-      // DEBUG: In ra avatarUrl hiện tại
       if (kDebugMode) {
-        print('Current avatarUrl before upload: ${_user.avatarUrl}');
+        print('Awaiting upload completion...');
       }
-
-      // 1. Tạo reference cho file mới TRƯỚC
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final fileName = 'avatars/${currentUser.uid}_$timestamp.jpg';
-      final ref = _storage.ref().child(fileName);
+      // Await completion of the upload task
+      final TaskSnapshot snapshot =
+          await uploadTask; // Wait for upload to finish
 
       if (kDebugMode) {
-        print('Uploading to: $fileName');
+        print('Upload complete. State: ${snapshot.state}');
       }
 
-      // 2. Upload file tùy theo nền tảng
-      if (kIsWeb && imageBytes != null) {
-        // Upload cho Web
-        await ref.putData(
-          imageBytes,
-          SettableMetadata(contentType: 'image/jpeg'),
+      if (snapshot.state == TaskState.success) {
+        if (kDebugMode) {
+          print('Getting download URL...');
+        }
+        final downloadUrl = await snapshot.ref.getDownloadURL();
+        if (kDebugMode) {
+          print('Download URL obtained: $downloadUrl');
+          print('Updating Firestore...');
+        }
+
+        await updateUserAvatar(
+            downloadUrl); // Update Firestore and notify listeners
+
+        if (kDebugMode) {
+          print('Firestore update successful.');
+        }
+
+        // Delete old avatar *after* successful update
+        if (oldAvatarUrl != null &&
+            oldAvatarUrl.isNotEmpty &&
+            oldAvatarUrl.contains('firebasestorage.googleapis.com')) {
+          if (kDebugMode) {
+            print('Attempting to delete old avatar: $oldAvatarUrl');
+          }
+          // Run deletion in background, don't await, catch errors
+          deleteOldAvatar(oldAvatarUrl).catchError((e) {
+            if (kDebugMode) {
+              print('Error deleting old avatar (non-critical): $e');
+            }
+          });
+        }
+        return downloadUrl; // Return the new URL on success
+      } else {
+        // Handle cases where the upload finished but wasn't successful (paused, canceled)
+        throw FirebaseException(
+          plugin: 'UserProvider',
+          code: 'upload-failed',
+          message: 'Upload task finished with state: ${snapshot.state}',
         );
-      } else if (!kIsWeb && imageFile != null) {
-        // Upload cho Mobile
-        await ref.putFile(imageFile);
-      } else {
-        throw Exception('Image data is missing or invalid for the platform.');
       }
-
-      // 3. Lấy URL để tải về
-      final downloadUrl = await ref.getDownloadURL();
-
-      if (kDebugMode) {
-        print('Avatar uploaded successfully: $downloadUrl');
-      }
-
-      // 4. XÓA ảnh cũ SAU KHI upload thành công
-      // Chỉ xóa nếu có URL và URL hợp lệ
-      if (_user.avatarUrl != null &&
-          _user.avatarUrl!.isNotEmpty &&
-          _user.avatarUrl!.contains('firebasestorage.googleapis.com')) {
-        if (kDebugMode) {
-          print('Attempting to delete old avatar: ${_user.avatarUrl}');
-        }
-        await deleteOldAvatar(_user.avatarUrl!);
-      } else {
-        if (kDebugMode) {
-          print('No valid old avatar to delete');
-        }
-      }
-
-      return downloadUrl;
     } catch (e) {
+      // Catch errors from await uploadTask, getDownloadURL, updateUserAvatar
       if (kDebugMode) {
-        print('Error uploading avatar: $e');
+        print('!!! Error during upload/update process: $e');
       }
-      rethrow;
+      // Check for specific Firebase exceptions like permission errors
+      if (e is FirebaseException) {
+        print('Firebase Error Code: ${e.code}');
+        print('Firebase Error Message: ${e.message}');
+      }
+      rethrow; // Rethrow to be caught by UI layer
     }
   }
 
-  // Hàm public cho Mobile, gọi đến hàm xử lý chung
-  Future<String> uploadAvatar(File imageFile) async {
-    return _internalUploadAvatar(imageFile: imageFile);
+  // Public function for Mobile
+  Future<String> uploadAvatar(io.File imageFile, String fileName) async {
+    Uint8List imageBytes = await imageFile.readAsBytes();
+    return _internalUploadAvatar(imageBytes, fileName);
   }
 
-  // Hàm public cho Web, gọi đến hàm xử lý chung
-  Future<String> uploadAvatarWeb(Uint8List imageBytes) async {
-    return _internalUploadAvatar(imageBytes: imageBytes);
+  // Public function for Web
+  Future<String> uploadAvatarWeb(Uint8List imageBytes, String fileName) async {
+    return _internalUploadAvatar(imageBytes, fileName);
   }
 
-  // Cập nhật URL avatar của người dùng trong Firestore
+  // Update user avatar URL in Firestore
   Future<void> updateUserAvatar(String avatarUrl) async {
+    // ... (implementation remains the same)
     try {
       final currentUser = _auth.currentUser;
       if (currentUser == null) {
@@ -189,48 +230,43 @@ class UserProvider with ChangeNotifier {
 
       // Cập nhật lại state của provider
       _user = _user.copyWith(avatarUrl: avatarUrl);
-      notifyListeners();
+      notifyListeners(); // This should trigger UI update
     } catch (e) {
       if (kDebugMode) {
-        print('Error updating avatar URL: $e');
+        print('!!! Error updating Firestore avatar URL: $e');
+        if (e is FirebaseException) {
+          print('Firestore Error Code: ${e.code}');
+          print('Firestore Error Message: ${e.message}');
+        }
       }
       rethrow;
     }
   }
 
-  // Xóa avatar cũ trên Firebase Storage
+  // Delete old avatar from Storage
   Future<void> deleteOldAvatar(String oldUrl) async {
-    try {
-      // Chỉ xóa nếu URL là của Firebase Storage VÀ chứa đường dẫn avatars/
-      if (oldUrl.contains('firebasestorage.googleapis.com') &&
-          oldUrl.contains('avatars%2F')) {
-        try {
-          final ref = _storage.refFromURL(oldUrl);
-          await ref.delete();
-          if (kDebugMode) {
-            print('Old avatar deleted successfully: $oldUrl');
-          }
-        } catch (deleteError) {
-          if (deleteError is FirebaseException &&
-              deleteError.code == 'object-not-found') {
-            if (kDebugMode) {
-              print('Old avatar not found, skipping: $oldUrl');
-            }
-          } else {
-            if (kDebugMode) {
-              print('Could not delete old avatar: $deleteError');
-            }
-          }
-        }
-      } else {
+    // ... (implementation remains the same)
+    if (oldUrl.contains('firebasestorage.googleapis.com')) {
+      try {
+        final ref = _storage.refFromURL(oldUrl);
+        await ref.delete();
         if (kDebugMode) {
-          print('Skipping delete - URL is not a Firebase Storage avatar: $oldUrl');
+          print('Old avatar deleted successfully: $oldUrl');
+        }
+      } catch (e) {
+        if (e is FirebaseException && e.code == 'object-not-found') {
+          if (kDebugMode) {
+            print('Old avatar not found, skipping delete: $oldUrl');
+          }
+        } else {
+          if (kDebugMode) {
+            print('Could not delete old avatar: $e');
+          }
         }
       }
-    } catch (e) {
-      // Catch bất kỳ lỗi nào khác (ví dụ: refFromURL thất bại)
+    } else {
       if (kDebugMode) {
-        print('Error in deleteOldAvatar (ignored): $e');
+        print('Skipping delete - URL is not a Firebase Storage URL: $oldUrl');
       }
     }
   }
