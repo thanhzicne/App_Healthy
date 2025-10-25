@@ -165,9 +165,28 @@ class _WaterScreenState extends State<WaterScreen>
   }
 
   // Helper method to calculate max Y for daily chart
-  double _getMaxDailyY(Iterable<int> values, double goal) {
-    final maxIntake = values.isNotEmpty ? values.reduce(max) : 0;
-    return max(maxIntake + 200, goal * 1.5);
+  // Helper method to calculate max Y for daily chart
+  double _getMaxDailyY(
+      Map<String, int> dailyIntake, double currentDayIntake, double goal) {
+    // Lấy tất cả giá trị từ các ngày trước
+    final pastValues = dailyIntake.values.map((e) => e.toDouble()).toList();
+
+    // Thêm giá trị của ngày hiện tại vào danh sách
+    pastValues.add(currentDayIntake);
+
+    // Tìm giá trị uống nước cao nhất
+    final maxIntake = pastValues.isNotEmpty ? pastValues.reduce(max) : 0.0;
+
+    // Giá trị cao nhất cũng phải bao gồm cả mốc 'Vượt mức' (goal * 1.5)
+    final highestValue = max(maxIntake, goal * 1.5);
+
+    // Nếu tất cả đều là 0, đặt giá trị mặc định (ví dụ: 2000 hoặc goal * 1.6)
+    if (highestValue == 0) {
+      return 2000;
+    }
+
+    // Thêm 10% đệm (padding) phía trên để đường biểu đồ không chạm nóc
+    return highestValue * 1.1;
   }
 
   // Helper method to build enhanced stats card
@@ -1424,7 +1443,10 @@ class _WaterScreenState extends State<WaterScreen>
                             maxX: 6,
                             minY: 0,
                             maxY: _getMaxDailyY(
-                                water.dailyIntake.values, water.mlGoal),
+                                water.dailyIntake,
+                                waterProvider
+                                    .getCurrentDailyIntake(), // Truyền lượng nước của ngày hôm nay
+                                water.mlGoal),
                           ),
                         ),
                       ),

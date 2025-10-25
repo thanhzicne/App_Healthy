@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -253,17 +254,41 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Hồ sơ',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
+          style: GoogleFonts.poppins(
+            // Sử dụng Google Fonts
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
           ),
         ),
         elevation: 0,
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black87),
+        backgroundColor: Colors.transparent, // Nền trong suốt
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.blue.shade600, // Sử dụng tông màu xanh dương
+                Colors.lightBlue.shade400, // Bạn có thể điều chỉnh màu sắc này
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings,
+                color: Colors.white), // Đổi icon thành 'settings'
+            onPressed: () {
+              // TODO: Thêm hành động cho nút cài đặt
+              // Ví dụ: Navigator.pushNamed(context, '/settings');
+              const Text("Cài đặt !");
+            },
+            tooltip: 'Cài đặt', // Tooltip cập nhật
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -471,6 +496,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             backgroundColor: Colors.red.shade100,
             foregroundColor: Colors.red,
           ),
+          const SizedBox(height: 80), // Thêm khoảng trống ở dưới cùng
         ],
       ),
     );

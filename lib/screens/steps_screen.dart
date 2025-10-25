@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../providers/steps_provider.dart';
 import '../models/steps_model.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class StepsScreen extends StatelessWidget {
   const StepsScreen({super.key});
@@ -16,10 +17,42 @@ class StepsScreen extends StatelessWidget {
         final stepsData = stepsProvider.steps;
 
         return Scaffold(
+          // (Hãy chắc chắn bạn đã import google_fonts ở đầu file)
+// import 'package:google_fonts/google_fonts.dart';
+
           appBar: AppBar(
-            title: const Text('Bước chân'),
+            title: Text(
+              'Bước chân',
+              style: GoogleFonts.poppins(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
             elevation: 0,
-            backgroundColor: Colors.transparent,
+            backgroundColor: Colors.transparent, // Nền trong suốt
+            flexibleSpace: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.purple.shade400, // Màu tím
+                    Colors.deepPurple.shade400, // Một màu tím đậm hơn
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.history, color: Colors.white),
+                onPressed: () {
+                  // TODO: Thêm hành động xem lịch sử bước chân (tương tự như màn hình cân nặng)
+                  // Bạn có thể gọi một hàm _showStepsHistory(context) ở đây
+                },
+                tooltip: 'Lịch sử bước chân',
+              ),
+            ],
           ),
           body: SingleChildScrollView(
             child: Column(

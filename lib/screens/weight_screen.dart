@@ -5,6 +5,7 @@ import '../providers/weight_provider.dart';
 import '../providers/user_provider.dart';
 import '../models/weight_model.dart';
 import '../widgets/chart_widget.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class WeightScreen extends StatefulWidget {
   const WeightScreen({super.key});
@@ -124,9 +125,127 @@ class _WeightScreenState extends State<WeightScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cân nặng'),
+        title: Text(
+          'Cân nặng',
+          style: GoogleFonts.poppins(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
         elevation: 0,
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.transparent, // Nền trong suốt
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.orange.shade600, // Màu cam đậm
+                Colors.amber.shade500 // Màu vàng hổ phách
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history, color: Colors.white),
+            tooltip: 'Lịch sử cân nặng',
+            onPressed: () {
+              // --- TOÀN BỘ LOGIC HIỂN THỊ LỊCH SỬ NẰM Ở ĐÂY ---
+
+              // Lấy provider (đã có sẵn trong hàm build)
+              final weightProvider = context.read<WeightProvider>();
+              final allWeights = weightProvider.weights;
+
+              // Sắp xếp danh sách, mới nhất lên trước
+              allWeights.sort((a, b) => b.dateTime.compareTo(a.dateTime));
+
+              // Lấy 5 mục gần nhất
+              final recentWeights = allWeights.take(5).toList();
+
+              // Hiển thị Bottom Sheet
+              showModalBottomSheet(
+                context: context, // Sử dụng context có sẵn từ hàm build
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                builder: (BuildContext bottomSheetContext) {
+                  return Container(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Lịch sử cân nặng (5 lần gần nhất)',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.orange.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (recentWeights.isEmpty)
+                          Center(
+                            child: Text(
+                              'Chưa có dữ liệu nào.',
+                              style: GoogleFonts.poppins(fontSize: 16),
+                            ),
+                          )
+                        else
+                          ListView.separated(
+                            shrinkWrap: true,
+                            itemCount: recentWeights.length,
+                            itemBuilder: (context, index) {
+                              final weightEntry = recentWeights[index];
+                              // Định dạng ngày tháng
+                              final formattedDate =
+                                  DateFormat('dd/MM/yyyy - hh:mm a')
+                                      .format(weightEntry.dateTime);
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: Colors.orange.shade100,
+                                  child: Icon(Icons.monitor_weight_outlined,
+                                      color: Colors.orange.shade800),
+                                ),
+                                title: Text(
+                                  '${weightEntry.currentWeight.toStringAsFixed(1)} kg',
+                                  style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16),
+                                ),
+                                subtitle: Text(
+                                  formattedDate,
+                                  style: GoogleFonts.poppins(
+                                      color: Colors.grey.shade600),
+                                ),
+                              );
+                            },
+                            separatorBuilder: (context, index) =>
+                                const Divider(height: 1),
+                          ),
+                        const SizedBox(height: 10),
+                        Center(
+                          child: TextButton(
+                            child: Text(
+                              'Đóng',
+                              style: GoogleFonts.poppins(
+                                  color: Colors.blue.shade600,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                            onPressed: () => Navigator.pop(bottomSheetContext),
+                          ),
+                        )
+                      ],
+                    ),
+                  );
+                },
+              );
+              // --- KẾT THÚC LOGIC HIỂN THỊ LỊCH SỬ ---
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Column(
