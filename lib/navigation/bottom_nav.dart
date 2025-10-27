@@ -24,8 +24,8 @@ class _BottomNavState extends State<BottomNav> with TickerProviderStateMixin {
     StepsScreen(),
     WeightScreen(),
     WaterScreen(),
-    ProfileScreen(),
     NewsScreen(),
+    ProfileScreen()
   ];
 
   final List<_NavItem> _navItems = [
@@ -54,17 +54,17 @@ class _BottomNavState extends State<BottomNav> with TickerProviderStateMixin {
       color: Colors.cyan,
     ),
     _NavItem(
-      icon: Icons.person_rounded,
-      activeIcon: Icons.person,
-      label: 'Hồ sơ',
-      color: Colors.green,
-    ),
-    _NavItem(
       icon: Icons.article_rounded,
       activeIcon: Icons.article,
       label: 'Tin tức',
       color: Colors.red,
     ),
+    _NavItem(
+      icon: Icons.person_rounded,
+      activeIcon: Icons.person,
+      label: 'Hồ sơ',
+      color: Colors.green,
+    )
   ];
 
   @override
@@ -126,44 +126,47 @@ class _BottomNavState extends State<BottomNav> with TickerProviderStateMixin {
   }
 
   Widget _buildModernBottomNav() {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      height: 75,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 30,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(30),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withOpacity(0.9),
-                  Colors.white.withOpacity(0.8),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.3),
-                width: 1.5,
-              ),
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.all(16),
+        height: 85, // ✅ tăng nhẹ chiều cao để không tràn
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 30,
+              offset: const Offset(0, 10),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(
-                _navItems.length,
-                (index) => _buildNavItem(index),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(30),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withOpacity(0.9),
+                    Colors.white.withOpacity(0.8),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1.5,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: List.generate(
+                  _navItems.length,
+                  (index) => _buildNavItem(index),
+                ),
               ),
             ),
           ),
@@ -188,7 +191,8 @@ class _BottomNavState extends State<BottomNav> with TickerProviderStateMixin {
                 : 1.0;
 
             return Container(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 6), // ✅ giảm padding
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -196,11 +200,10 @@ class _BottomNavState extends State<BottomNav> with TickerProviderStateMixin {
                   Stack(
                     alignment: Alignment.center,
                     children: [
-                      // Background glow effect
                       if (isSelected)
                         Container(
-                          width: 48,
-                          height: 48,
+                          width: 46, // ✅ giảm nhẹ icon background
+                          height: 46,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: RadialGradient(
@@ -212,12 +215,11 @@ class _BottomNavState extends State<BottomNav> with TickerProviderStateMixin {
                             ),
                           ),
                         ),
-
-                      // Icon container
                       Transform.scale(
                         scale: scale,
                         child: Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: const EdgeInsets.all(
+                              7), // ✅ giảm padding trong icon
                           decoration: BoxDecoration(
                             gradient: isSelected
                                 ? LinearGradient(
@@ -235,16 +237,13 @@ class _BottomNavState extends State<BottomNav> with TickerProviderStateMixin {
                             isSelected ? item.activeIcon : item.icon,
                             color:
                                 isSelected ? item.color : Colors.grey.shade500,
-                            size: 26,
+                            size: 25, // ✅ giảm 1px để vừa khung
                           ),
                         ),
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 4),
-
-                  // Label with animation
+                  const SizedBox(height: 3), // ✅ giảm khoảng cách chữ
                   AnimatedDefaultTextStyle(
                     duration: const Duration(milliseconds: 300),
                     style: TextStyle(

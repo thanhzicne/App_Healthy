@@ -1,9 +1,11 @@
+// ✅ THÊM CÁC IMPORT
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/steps_provider.dart';
 import '../providers/weight_provider.dart';
 import '../providers/water_provider.dart';
+import '../services/water_notification_handler.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -43,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     _staggerAnimations = List.generate(
       6,
-      (index) => Tween<double>(begin: 0, end: 1).animate(
+          (index) => Tween<double>(begin: 0, end: 1).animate(
         CurvedAnimation(
           parent: _mainAnimationController,
           curve: Interval(
@@ -205,7 +207,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                 icon: Icons.scale_rounded,
                                 label: 'Cân nặng',
                                 value:
-                                    '${weight.currentWeight.toStringAsFixed(1)} kg',
+                                '${weight.currentWeight.toStringAsFixed(1)} kg',
                                 color: Colors.orange,
                                 gradient: [
                                   Colors.orange.shade400,
@@ -328,31 +330,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             ],
                             onTap: () => Navigator.pushNamed(context, '/steps'),
                           ),
+                          // ✅ CẬP NHẬT: Button thông báo
                           _buildModernQuickActionButton(
                             index: 3,
                             icon: Icons.notifications_active,
-                            label: 'Nhắc nhở',
+                            label: 'Thông báo',
                             gradient: [
                               Colors.pink.shade400,
                               Colors.red.shade500
                             ],
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: const Text(
-                                    '🔔 Tính năng đang phát triển',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.w600),
-                                  ),
-                                  backgroundColor: Colors.purple.shade400,
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  margin: const EdgeInsets.all(16),
-                                ),
-                              );
-                            },
+                            onTap: () => _showNotificationOptions(context),
                           ),
                         ],
                       ),
@@ -365,6 +352,344 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// ✅ THÊM: Hàm hiển thị menu thông báo
+  void _showNotificationOptions(BuildContext context) {
+    final waterProvider = Provider.of<WaterProvider>(context, listen: false);
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white,
+              Colors.blue.shade50,
+            ],
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 50,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                '🔔 Quản lý thông báo',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue.shade700,
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Test Notification
+              _buildNotificationOption(
+                icon: Icons.notifications,
+                title: '📊 Test Thông báo',
+                subtitle: 'Kiểm tra thông báo dựa trên lượng nước hiện tại',
+                onTap: () async {
+                  Navigator.pop(context);
+                  try {
+                    final currentIntake = waterProvider.getCurrentDailyIntake();
+                    final goal = waterProvider.water.mlGoal;
+
+                    final handler = WaterNotificationHandler();
+                    await handler.handleWaterIntakeNotification(
+                      currentIntake: currentIntake,
+                      goal: goal,
+                      timestamp: DateTime.now(),
+                    );
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Row(
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.white),
+                              SizedBox(width: 8),
+                              Text('✅ Đã gửi thông báo test!'),
+                            ],
+                          ),
+                          backgroundColor: Colors.green.shade600,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('❌ Lỗi: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              // Send Daily Summary
+              _buildNotificationOption(
+                icon: Icons.bar_chart,
+                title: '📈 Gửi Thống kê Hôm nay',
+                subtitle: 'Xem thống kê lượng nước uống trong ngày',
+                onTap: () async {
+                  Navigator.pop(context);
+                  try {
+                    await waterProvider.sendEndOfDaySummary();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Row(
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.white),
+                              SizedBox(width: 8),
+                              Text('✅ Đã gửi thống kê!'),
+                            ],
+                          ),
+                          backgroundColor: Colors.blue.shade600,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('❌ Lỗi: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              // Send Motivation
+              _buildNotificationOption(
+                icon: Icons.favorite,
+                title: '💬 Lời Khuyến khích',
+                subtitle: 'Nhận lời khuyến khích để uống nước',
+                onTap: () async {
+                  Navigator.pop(context);
+                  try {
+                    await waterProvider.sendMotivation();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Row(
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.white),
+                              SizedBox(width: 8),
+                              Text('✅ Đã gửi lời khuyến khích!'),
+                            ],
+                          ),
+                          backgroundColor: Colors.purple.shade600,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('❌ Lỗi: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              // Initialize Reminders
+              _buildNotificationOption(
+                icon: Icons.schedule,
+                title: '⏰ Khởi tạo Nhắc nhở',
+                subtitle: 'Lên lịch nhắc nhở vào 8h, 12h, 15h, 18h, 21h',
+                onTap: () async {
+                  Navigator.pop(context);
+                  try {
+                    await waterProvider.initializeDailyReminders();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Row(
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.white),
+                              SizedBox(width: 8),
+                              Text('✅ Đã khởi tạo nhắc nhở!'),
+                            ],
+                          ),
+                          backgroundColor: Colors.orange.shade600,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('❌ Lỗi: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              // Cancel All Notifications
+              _buildNotificationOption(
+                icon: Icons.close_rounded,
+                title: '❌ Hủy Tất cả Thông báo',
+                subtitle: 'Dừng tất cả các thông báo đã lên lịch',
+                onTap: () async {
+                  Navigator.pop(context);
+                  try {
+                    await waterProvider.cancelAllNotifications();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Row(
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.white),
+                              SizedBox(width: 8),
+                              Text('✅ Đã hủy tất cả thông báo!'),
+                            ],
+                          ),
+                          backgroundColor: Colors.red.shade600,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('❌ Lỗi: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+              const SizedBox(height: 20),
+            ],
+
+        ),
+        ),
+      ),
+    );
+  }
+
+  /// ✅ THÊM: Widget tùy chọn thông báo
+  Widget _buildNotificationOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.blue.shade50,
+                Colors.purple.shade50,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Colors.blue.shade200,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.blue.shade300,
+                      Colors.blue.shade500,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: Colors.grey.shade400,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -492,7 +817,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ],
                     ),
                     const SizedBox(height: 24),
-                    // Animated Progress Bar with Shimmer
                     Stack(
                       children: [
                         Container(
@@ -507,7 +831,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           builder: (context, child) {
                             return FractionallySizedBox(
                               widthFactor:
-                                  progress * _mainAnimationController.value,
+                              progress * _mainAnimationController.value,
                               child: Container(
                                 height: 16,
                                 decoration: BoxDecoration(
@@ -530,7 +854,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             );
                           },
                         ),
-                        // Shimmer effect
                         AnimatedBuilder(
                           animation: _shimmerAnimationController,
                           builder: (context, child) {
@@ -645,12 +968,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         final isHovered = hoveredButtons.contains(index);
         return MouseRegion(
           onEnter: (_) =>
-              _hoveredButtons.value = {..._hoveredButtons.value, index},
+          _hoveredButtons.value = {..._hoveredButtons.value, index},
           onExit: (_) =>
-              _hoveredButtons.value = {..._hoveredButtons.value}..remove(index),
+          _hoveredButtons.value = {..._hoveredButtons.value}..remove(index),
           child: GestureDetector(
             onTapDown: (_) =>
-                _hoveredButtons.value = {..._hoveredButtons.value, index},
+            _hoveredButtons.value = {..._hoveredButtons.value, index},
             onTapUp: (_) {
               Future.delayed(const Duration(milliseconds: 150), () {
                 _hoveredButtons.value = {..._hoveredButtons.value}

@@ -7,7 +7,9 @@ import 'dart:math';
 import '../models/water_intake_model.dart';
 import '../providers/user_provider.dart';
 import '../providers/water_provider.dart';
+import '../services/notification_service.dart';
 import '../widgets/progress_ring.dart';
+import '../services/water_notification_handler.dart';
 
 class WaterScreen extends StatefulWidget {
   const WaterScreen({super.key});
@@ -31,7 +33,7 @@ class _WaterScreenState extends State<WaterScreen>
 
     _staggerAnimations = List.generate(
       7,
-      (index) => Tween<double>(begin: 0, end: 1).animate(
+          (index) => Tween<double>(begin: 0, end: 1).animate(
         CurvedAnimation(
           parent: _animationController,
           curve: Interval(
@@ -44,12 +46,81 @@ class _WaterScreenState extends State<WaterScreen>
     );
 
     _animationController.forward();
+
+    // ✅ Khởi tạo nhắc nhở hàng ngày
+    _setupPeriodicReminders();
   }
 
   @override
   void dispose() {
     _animationController.dispose();
     super.dispose();
+  }
+
+  // ✅ Hàm setup nhắc nhở định kỳ
+  void _setupPeriodicReminders() async {
+    final waterProvider = Provider.of<WaterProvider>(context, listen: false);
+
+    // Khởi tạo nhắc nhở hàng ngày lúc: 8, 12, 15, 18, 21
+    await waterProvider.initializeDailyReminders();
+
+    // Gửi thống kê vào lúc 22h hàng đêm
+    _scheduleDailySummary();
+  }
+
+  // ✅ Lên lịch thống kê hàng ngày
+  void _scheduleDailySummary() {
+    final now = DateTime.now();
+    final scheduledTime = DateTime(now.year, now.month, now.day, 22, 0);
+
+    if (scheduledTime.isBefore(now)) {
+      // Nếu 22h đã qua, lên lịch cho ngày mai
+      final scheduledTimeNextDay = scheduledTime.add(const Duration(days: 1));
+      _scheduleTask(scheduledTimeNextDay);
+    } else {
+      _scheduleTask(scheduledTime);
+    }
+  }
+
+  // ✅ Hàm lên lịch tác vụ
+  void _scheduleTask(DateTime scheduledTime) {
+    final duration = scheduledTime.difference(DateTime.now());
+
+    Future.delayed(duration, () async {
+      if (mounted) {
+        final waterProvider =
+        Provider.of<WaterProvider>(context, listen: false);
+        await waterProvider.sendEndOfDaySummary();
+
+        // Sau đó lên lịch cho ngày hôm sau
+        _scheduleDailySummary();
+      }
+    });
+  }
+
+  // ✅ Dialog cấu hình nhắc nhở
+  void _showReminderSettings(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('⏰ Cấu hình nhắc nhở'),
+        content: const Text(
+          'Bạn sẽ nhận được nhắc nhở lúc:\n'
+              '• 8:00 - Sáng\n'
+              '• 12:00 - Trưa\n'
+              '• 15:00 - Chiều\n'
+              '• 18:00 - Tối\n'
+              '• 21:00 - Tối muộn\n'
+              '• 22:00 - Tóm tắt ngày',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   // Helper method to build enhanced water buttons
@@ -100,10 +171,13 @@ class _WaterScreenState extends State<WaterScreen>
     );
   }
 
-  // Helper method to add water with feedback
+  // ✅ CẬP NHẬT: Hàm thêm nước với thông báo
   void _addWaterWithFeedback(BuildContext context, int ml) async {
     final waterProvider = Provider.of<WaterProvider>(context, listen: false);
-    await waterProvider.addWater(ml);
+
+    // Thêm nước VÀ gửi thông báo tự động
+    await waterProvider.addWaterWithNotification(ml);
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -111,9 +185,11 @@ class _WaterScreenState extends State<WaterScreen>
             children: [
               const Icon(Icons.local_drink, color: Colors.white),
               const SizedBox(width: 8),
-              Text(
-                'Đã thêm $ml ml nước',
-                style: GoogleFonts.poppins(color: Colors.white),
+              Expanded(
+                child: Text(
+                  'Đã thêm $ml ml nước',
+                  style: GoogleFonts.poppins(color: Colors.white),
+                ),
               ),
             ],
           ),
@@ -125,7 +201,144 @@ class _WaterScreenState extends State<WaterScreen>
           duration: const Duration(seconds: 2),
         ),
       );
+
+      // Cập nhật UI
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          setState(() {});
+        }
+      });
     }
+  }
+
+  // ✅ CẬP NHẬT: AppBar với menu thêm tùy chọn
+  AppBar _buildAppBar(BuildContext context, WaterProvider waterProvider) {
+    return AppBar(
+      title: Text(
+        'Nước uống',
+        style: GoogleFonts.poppins(
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+        ),
+      ),
+      elevation: 0,
+      flexibleSpace: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.blue.shade600, Colors.cyan.shade400],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+      ),
+      actions: [
+        // Nút Test Notification
+        IconButton(
+          icon: const Icon(Icons.notifications_active, color: Colors.white),
+          onPressed: () async {
+            try {
+              print('🔔 Testing notification...');
+
+              final currentIntake = waterProvider.getCurrentDailyIntake();
+              final goal = waterProvider.water.mlGoal;
+
+              final handler = WaterNotificationHandler();
+              await handler.handleWaterIntakeNotification(
+                currentIntake: currentIntake,
+                goal: goal,
+                timestamp: DateTime.now(),
+              );
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Row(
+                      children: [
+                        const Icon(Icons.check_circle, color: Colors.white),
+                        const SizedBox(width: 8),
+                        const Text('✅ Đã gửi thông báo test!'),
+                      ],
+                    ),
+                    backgroundColor: Colors.green.shade600,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                );
+              }
+            } catch (e) {
+              print('❌ Error: $e');
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('❌ Lỗi: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
+          },
+          tooltip: 'Test thông báo',
+        ),
+
+        // ✅ Menu tùy chọn
+        PopupMenuButton(
+          icon: const Icon(Icons.more_vert, color: Colors.white),
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              child: const Text('📊 Gửi thống kê'),
+              onTap: () async {
+                await waterProvider.sendEndOfDaySummary();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Đã gửi thống kê'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+            ),
+            PopupMenuItem(
+              child: const Text('💬 Gửi lời khuyến khích'),
+              onTap: () async {
+                await waterProvider.sendMotivation();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Đã gửi lời khuyến khích'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+            ),
+            PopupMenuItem(
+              child: const Text('📅 Cấu hình nhắc nhở'),
+              onTap: () {
+                _showReminderSettings(context);
+              },
+            ),
+            PopupMenuItem(
+              child: const Text('❌ Hủy tất cả thông báo'),
+              onTap: () async {
+                await waterProvider.cancelAllNotifications();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Đã hủy tất cả thông báo'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
   // Helper method to generate hourly chart spots
@@ -165,27 +378,17 @@ class _WaterScreenState extends State<WaterScreen>
   }
 
   // Helper method to calculate max Y for daily chart
-  // Helper method to calculate max Y for daily chart
   double _getMaxDailyY(
       Map<String, int> dailyIntake, double currentDayIntake, double goal) {
-    // Lấy tất cả giá trị từ các ngày trước
     final pastValues = dailyIntake.values.map((e) => e.toDouble()).toList();
-
-    // Thêm giá trị của ngày hiện tại vào danh sách
     pastValues.add(currentDayIntake);
-
-    // Tìm giá trị uống nước cao nhất
     final maxIntake = pastValues.isNotEmpty ? pastValues.reduce(max) : 0.0;
-
-    // Giá trị cao nhất cũng phải bao gồm cả mốc 'Vượt mức' (goal * 1.5)
     final highestValue = max(maxIntake, goal * 1.5);
 
-    // Nếu tất cả đều là 0, đặt giá trị mặc định (ví dụ: 2000 hoặc goal * 1.6)
     if (highestValue == 0) {
       return 2000;
     }
 
-    // Thêm 10% đệm (padding) phía trên để đường biểu đồ không chạm nóc
     return highestValue * 1.1;
   }
 
@@ -312,8 +515,6 @@ class _WaterScreenState extends State<WaterScreen>
           ],
         ),
         const SizedBox(height: 16),
-
-        // Today's Stats Card
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -436,10 +637,7 @@ class _WaterScreenState extends State<WaterScreen>
             ],
           ),
         ),
-
         const SizedBox(height: 16),
-
-        // Monthly Stats Card
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -497,16 +695,16 @@ class _WaterScreenState extends State<WaterScreen>
                           colors: goalAchievement >= 100
                               ? [Colors.green.shade400, Colors.green.shade600]
                               : [
-                                  Colors.purple.shade400,
-                                  Colors.purple.shade600
-                                ],
+                            Colors.purple.shade400,
+                            Colors.purple.shade600
+                          ],
                         ),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
                             color: (goalAchievement >= 100
-                                    ? Colors.green
-                                    : Colors.purple)
+                                ? Colors.green
+                                : Colors.purple)
                                 .withOpacity(0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
@@ -577,53 +775,7 @@ class _WaterScreenState extends State<WaterScreen>
     final water = waterProvider.water;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Nước uống',
-          style: GoogleFonts.poppins(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
-        ),
-        elevation: 0,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.blue.shade600, Colors.cyan.shade400],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_active, color: Colors.white),
-            onPressed: () async {
-              await waterProvider.testNotification();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: [
-                        const Icon(Icons.check_circle, color: Colors.white),
-                        const SizedBox(width: 8),
-                        const Text('Đã gửi thông báo test'),
-                      ],
-                    ),
-                    backgroundColor: Colors.green.shade600,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                );
-              }
-            },
-            tooltip: 'Test thông báo',
-          ),
-        ],
-      ),
+      appBar: _buildAppBar(context, waterProvider),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -691,7 +843,7 @@ class _WaterScreenState extends State<WaterScreen>
                         const SizedBox(height: 30),
                         ProgressRing(
                           value:
-                              (water.cupsDrunk / water.totalCups).clamp(0, 1),
+                          (water.cupsDrunk / water.totalCups).clamp(0, 1),
                           label: '${water.cupsDrunk}/${water.totalCups}',
                         ),
                         const SizedBox(height: 25),
@@ -825,13 +977,13 @@ class _WaterScreenState extends State<WaterScreen>
                             gradient: LinearGradient(
                               colors: water.cupsDrunk >= water.totalCups
                                   ? [
-                                      Colors.green.shade300,
-                                      Colors.green.shade500
-                                    ]
+                                Colors.green.shade300,
+                                Colors.green.shade500
+                              ]
                                   : [
-                                      Colors.amber.shade300,
-                                      Colors.orange.shade400
-                                    ],
+                                Colors.amber.shade300,
+                                Colors.orange.shade400
+                              ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
@@ -839,8 +991,8 @@ class _WaterScreenState extends State<WaterScreen>
                             boxShadow: [
                               BoxShadow(
                                 color: (water.cupsDrunk >= water.totalCups
-                                        ? Colors.green
-                                        : Colors.orange)
+                                    ? Colors.green
+                                    : Colors.orange)
                                     .withOpacity(0.3),
                                 blurRadius: 8,
                                 offset: const Offset(0, 4),
@@ -1126,12 +1278,12 @@ class _WaterScreenState extends State<WaterScreen>
                                   show: true,
                                   getDotPainter:
                                       (spot, percent, barData, index) =>
-                                          FlDotCirclePainter(
-                                    radius: 5,
-                                    color: Colors.white,
-                                    strokeWidth: 3,
-                                    strokeColor: Colors.blue.shade700,
-                                  ),
+                                      FlDotCirclePainter(
+                                        radius: 5,
+                                        color: Colors.white,
+                                        strokeWidth: 3,
+                                        strokeColor: Colors.blue.shade700,
+                                      ),
                                 ),
                                 belowBarData: BarAreaData(
                                   show: true,
@@ -1338,12 +1490,12 @@ class _WaterScreenState extends State<WaterScreen>
                                   show: true,
                                   getDotPainter:
                                       (spot, percent, barData, index) =>
-                                          FlDotCirclePainter(
-                                    radius: 5,
-                                    color: Colors.white,
-                                    strokeWidth: 3,
-                                    strokeColor: Colors.green.shade700,
-                                  ),
+                                      FlDotCirclePainter(
+                                        radius: 5,
+                                        color: Colors.white,
+                                        strokeWidth: 3,
+                                        strokeColor: Colors.green.shade700,
+                                      ),
                                 ),
                                 belowBarData: BarAreaData(
                                   show: true,
@@ -1369,7 +1521,7 @@ class _WaterScreenState extends State<WaterScreen>
                                     show: true,
                                     alignment: Alignment.topRight,
                                     padding:
-                                        const EdgeInsets.only(top: 5, right: 5),
+                                    const EdgeInsets.only(top: 5, right: 5),
                                     style: GoogleFonts.poppins(
                                       color: Colors.red.shade700,
                                       fontSize: 11,
@@ -1387,7 +1539,7 @@ class _WaterScreenState extends State<WaterScreen>
                                     show: true,
                                     alignment: Alignment.topRight,
                                     padding:
-                                        const EdgeInsets.only(top: 5, right: 5),
+                                    const EdgeInsets.only(top: 5, right: 5),
                                     style: GoogleFonts.poppins(
                                       color: Colors.green.shade700,
                                       fontSize: 11,
@@ -1405,7 +1557,7 @@ class _WaterScreenState extends State<WaterScreen>
                                     show: true,
                                     alignment: Alignment.topRight,
                                     padding:
-                                        const EdgeInsets.only(top: 5, right: 5),
+                                    const EdgeInsets.only(top: 5, right: 5),
                                     style: GoogleFonts.poppins(
                                       color: Colors.orange.shade700,
                                       fontSize: 11,
@@ -1444,8 +1596,7 @@ class _WaterScreenState extends State<WaterScreen>
                             minY: 0,
                             maxY: _getMaxDailyY(
                                 water.dailyIntake,
-                                waterProvider
-                                    .getCurrentDailyIntake(), // Truyền lượng nước của ngày hôm nay
+                                waterProvider.getCurrentDailyIntake(),
                                 water.mlGoal),
                           ),
                         ),
