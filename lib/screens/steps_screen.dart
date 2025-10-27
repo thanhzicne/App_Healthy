@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../providers/steps_provider.dart';
 import '../models/steps_model.dart';
+import '../screens/steps_history_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class StepsScreen extends StatelessWidget {
@@ -11,15 +12,11 @@ class StepsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Sử dụng Consumer để tự động cập nhật UI khi có dữ liệu mới từ Provider
     return Consumer<StepsProvider>(
       builder: (context, stepsProvider, child) {
         final stepsData = stepsProvider.steps;
 
         return Scaffold(
-          // (Hãy chắc chắn bạn đã import google_fonts ở đầu file)
-// import 'package:google_fonts/google_fonts.dart';
-
           appBar: AppBar(
             title: Text(
               'Bước chân',
@@ -30,13 +27,13 @@ class StepsScreen extends StatelessWidget {
               ),
             ),
             elevation: 0,
-            backgroundColor: Colors.transparent, // Nền trong suốt
+            backgroundColor: Colors.transparent,
             flexibleSpace: Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    Colors.purple.shade400, // Màu tím
-                    Colors.deepPurple.shade400, // Một màu tím đậm hơn
+                    Colors.purple.shade400,
+                    Colors.deepPurple.shade400,
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -47,8 +44,14 @@ class StepsScreen extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.history, color: Colors.white),
                 onPressed: () {
-                  // TODO: Thêm hành động xem lịch sử bước chân (tương tự như màn hình cân nặng)
-                  // Bạn có thể gọi một hàm _showStepsHistory(context) ở đây
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => StepsHistoryScreen(
+                        dailySteps: stepsProvider.dailySteps,
+                      ),
+                    ),
+                  );
                 },
                 tooltip: 'Lịch sử bước chân',
               ),
@@ -57,7 +60,7 @@ class StepsScreen extends StatelessWidget {
           body: SingleChildScrollView(
             child: Column(
               children: [
-                // Goal Card Header (Giữ nguyên cấu trúc, chỉ cập nhật dữ liệu)
+                // Goal Card Header
                 Container(
                   margin: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -90,7 +93,6 @@ class StepsScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      // Dữ liệu được cập nhật tự động
                       Text(
                         '${stepsData.steps} / ${stepsData.goal}',
                         style: const TextStyle(
@@ -120,7 +122,7 @@ class StepsScreen extends StatelessWidget {
                   ),
                 ),
 
-                // Thẻ hiển thị Calo và Quãng đường
+                // Hiển thị Calo và Quãng đường
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Row(
@@ -128,7 +130,7 @@ class StepsScreen extends StatelessWidget {
                       _buildInfoCard(
                         icon: Icons.local_fire_department_rounded,
                         color: Colors.orange,
-                        title: 'Calo đốt cháy',
+                        title: 'Calo đốt chảy',
                         value: '${stepsData.calories.toStringAsFixed(0)} kcal',
                       ),
                       const SizedBox(width: 16),
@@ -168,7 +170,6 @@ class StepsScreen extends StatelessWidget {
     );
   }
 
-  // Widget helper để tạo các card thông tin (Calo, Quãng đường)
   Widget _buildInfoCard({
     required IconData icon,
     required Color color,
@@ -205,7 +206,6 @@ class StepsScreen extends StatelessWidget {
     );
   }
 
-  // Widget helper để tạo khung chứa biểu đồ
   Widget _buildChartContainer({required String title, required Widget chart}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -273,7 +273,6 @@ class TodayChart extends StatelessWidget {
             sideTitles: SideTitles(
               showTitles: true,
               getTitlesWidget: (value, meta) {
-                // Hiển thị giờ chẵn
                 if (value.toInt() % 4 == 0) {
                   return Text('${value.toInt()}h',
                       style: const TextStyle(fontSize: 10));
@@ -349,7 +348,6 @@ class WeeklyChart extends StatelessWidget {
               interval: 1,
               getTitlesWidget: (value, meta) {
                 if (value.toInt() < data.length) {
-                  // Hiển thị tên các ngày trong tuần (T2, T3,...)
                   return Padding(
                     padding: const EdgeInsets.only(top: 8.0),
                     child: Text(

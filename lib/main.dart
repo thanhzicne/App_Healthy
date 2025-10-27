@@ -10,6 +10,7 @@ import 'navigation/bottom_nav.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/steps_screen.dart';
+import 'screens/steps_history_screen.dart';
 import 'screens/weight_screen.dart';
 import 'screens/water_screen.dart';
 import 'firebase_options.dart';
@@ -19,7 +20,6 @@ void main() async {
   try {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   } catch (e) {
-    // Xử lý lỗi nếu Firebase không khởi tạo được
     print('Lỗi khởi tạo Firebase: $e');
   }
   runApp(const MyApp());
@@ -65,7 +65,7 @@ class AuthWrapper extends StatelessWidget {
     await Future.wait([
       Provider.of<WaterProvider>(context, listen: false).loadWater(),
       Provider.of<WeightProvider>(context, listen: false).loadWeight(),
-      Provider.of<StepsProvider>(context, listen: false).loadData(), // Bỏ comment để tải dữ liệu
+      Provider.of<StepsProvider>(context, listen: false).loadData(),
     ]);
   }
 
@@ -79,7 +79,6 @@ class AuthWrapper extends StatelessWidget {
         }
 
         if (snapshot.hasData) {
-          // Người dùng đã đăng nhập, chờ dữ liệu ban đầu được tải
           return FutureBuilder(
             future: _loadInitialData(context),
             builder: (context, loadSnapshot) {
@@ -89,13 +88,11 @@ class AuthWrapper extends StatelessWidget {
               if (loadSnapshot.hasError) {
                 return ErrorScreen(error: loadSnapshot.error.toString());
               }
-              // Dữ liệu đã tải xong, chuyển sang trang chính
               return const BottomNav();
             },
           );
         }
 
-        // Người dùng chưa đăng nhập, hiển thị màn hình login
         return const LoginScreen();
       },
     );
@@ -134,7 +131,6 @@ class ErrorScreen extends StatelessWidget {
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                // Có thể thêm logic retry hoặc quay lại
                 Navigator.pushReplacementNamed(context, '/login');
               },
               child: const Text('Thử lại'),

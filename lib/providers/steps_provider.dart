@@ -20,7 +20,8 @@ class StepsProvider with ChangeNotifier {
 
   StreamSubscription<StepCount>? _stepCountSubscription;
   int _initialSteps = 0;
-  int _lastSavedSteps = 0; // Thêm biến để theo dõi bước chân đã lưu
+  int _lastSavedSteps = 0;
+  DateTime _lastHourlyUpdateTime = DateTime.now();
 
   StepsProvider() {
     loadData();
@@ -42,7 +43,6 @@ class StepsProvider with ChangeNotifier {
   Future<void> _initPedometer() async {
     if (uid == null) return;
 
-    // Yêu cầu quyền ACTIVITY_RECOGNITION trước
     bool hasPermission = await _requestActivityRecognitionPermission();
     if (!hasPermission) {
       print("Activity Recognition permission not granted!");
@@ -64,7 +64,6 @@ class StepsProvider with ChangeNotifier {
       final status = await Permission.activityRecognition.status;
 
       if (status.isDenied) {
-        // Yêu cầu quyền
         final result = await Permission.activityRecognition.request();
         return result.isGranted;
       }
@@ -86,21 +85,17 @@ class StepsProvider with ChangeNotifier {
       return;
     }
 
-    // Tính số bước chân mới
     int currentSystemSteps = event.steps;
     int newStepsFromSensor = currentSystemSteps - _initialSteps;
 
     print("Current system steps: $currentSystemSteps, Initial: $_initialSteps, New steps: $newStepsFromSensor");
 
     if (newStepsFromSensor > 0) {
-      // Tính tổng số bước hôm nay
       int totalStepsToday = _steps.steps + newStepsFromSensor;
-
       print("Total steps today: $totalStepsToday");
 
       _updateStepsData(totalStepsToday, newStepsFromSensor);
 
-      // Reset lại mốc ban đầu
       _initialSteps = currentSystemSteps;
     }
   }
@@ -118,11 +113,32 @@ class StepsProvider with ChangeNotifier {
 
     print("Updated steps: ${_steps.steps}, Calories: ${_steps.calories}, Distance: ${_steps.distance}");
 
-    // Thông báo cho UI cập nhật ngay lập tức
-    notifyListeners();
+    // Cập nhật biểu đồ hourly
+    _updateHourlyChart();
 
-    // Lưu vào Firestore (không phải async, để lưu nhanh)
+    notifyListeners();
     saveData();
+  }
+
+  // Cập nhật biểu đồ hourly tự động
+  void _updateHourlyChart() {
+    DateTime now = DateTime.now();
+    String hourDocId = "${now.year}-${now.month}-${now.day}-${now.hour}";
+
+    // Tìm xem giờ hiện tại có trong danh sách hourlySteps chưa
+    int existingIndex = _hourlySteps.indexWhere((h) => h.hour.hour == now.hour);
+
+    if (existingIndex >= 0) {
+      // Cập nhật dữ liệu giờ hiện tại
+      _hourlySteps[existingIndex] = HourlySteps(hour: now, steps: _steps.steps);
+    } else {
+      // Thêm giờ mới nếu chưa có
+      _hourlySteps.add(HourlySteps(hour: now, steps: _steps.steps));
+      _hourlySteps.sort((a, b) => a.hour.hour.compareTo(b.hour.hour));
+    }
+
+    _lastHourlyUpdateTime = now;
+    print("Hourly chart updated. Total entries: ${_hourlySteps.length}");
   }
 
   // Load tất cả dữ liệu khi khởi tạo provider
@@ -138,7 +154,6 @@ class StepsProvider with ChangeNotifier {
     print("StepsProvider: Loading data for user $uid");
 
     try {
-      // 1. Load dữ liệu tổng quan trong ngày
       DocumentSnapshot todayDoc = await _userCollection.doc('today').get();
       if (todayDoc.exists) {
         _steps = StepsModel.fromJson(todayDoc.data() as Map<String, dynamic>);
@@ -148,13 +163,8 @@ class StepsProvider with ChangeNotifier {
         _lastSavedSteps = 0;
       }
 
-      // 2. QUAN TRỌNG: Kiểm tra và lưu trữ ngày hôm qua TRƯỚC KHI làm bất cứ điều gì khác
       await _archiveYesterdayDataIfNeeded();
-
-      // 3. Load dữ liệu cho biểu đồ
       await _loadChartData();
-
-      // 4. SAU KHI đã load xong, BẮT ĐẦU lắng nghe
       await _initPedometer();
 
       notifyListeners();
@@ -168,10 +178,8 @@ class StepsProvider with ChangeNotifier {
     if (uid == null) return;
 
     try {
-      // 1. Lưu dữ liệu tổng quan của ngày hôm nay
       await _userCollection.doc('today').set(_steps.toJson());
 
-      // 2. Cập nhật dữ liệu cho biểu đồ giờ hiện tại
       DateTime now = DateTime.now();
       String hourDocId = "${now.year}-${now.month}-${now.day}-${now.hour}";
 
@@ -182,7 +190,7 @@ class StepsProvider with ChangeNotifier {
           .set({
         'hour': Timestamp.fromDate(DateTime(now.year, now.month, now.day, now.hour)),
         'steps': _steps.steps
-      }, SetOptions(merge: true)); // Sử dụng merge để không ghi đè hoàn toàn
+      }, SetOptions(merge: true));
 
       _lastSavedSteps = _steps.steps;
       print("Data saved to Firestore: ${_steps.steps} steps");
@@ -216,11 +224,10 @@ class StepsProvider with ChangeNotifier {
           'calories': _steps.calories,
         });
 
-        // Reset dữ liệu cho ngày hôm nay
         _steps = StepsModel(lastUpdated: Timestamp.now(), goal: _steps.goal);
         _lastSavedSteps = 0;
+        _hourlySteps.clear(); // Xóa dữ liệu hourly cũ
 
-        // Xóa dữ liệu hourly của ngày cũ
         var snapshot = await _userCollection
             .doc('today')
             .collection('hourly')
@@ -230,7 +237,6 @@ class StepsProvider with ChangeNotifier {
           await doc.reference.delete();
         }
 
-        // Lưu lại _steps đã reset
         await _userCollection.doc('today').set(_steps.toJson());
         print("Reset steps for today.");
       } catch (e) {
@@ -244,7 +250,6 @@ class StepsProvider with ChangeNotifier {
     if (uid == null) return;
 
     try {
-      // Biểu đồ trong ngày
       var hourlySnapshot = await _userCollection
           .doc('today')
           .collection('hourly')
@@ -254,7 +259,6 @@ class StepsProvider with ChangeNotifier {
           .map((doc) => HourlySteps.fromJson(doc.data()))
           .toList();
 
-      // Biểu đồ 7 ngày
       var dailySnapshot = await _userCollection
           .doc('history')
           .collection('daily')
