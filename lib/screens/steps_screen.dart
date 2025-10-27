@@ -198,7 +198,7 @@ class StepsScreen extends StatelessWidget {
             const SizedBox(height: 4),
             Text(value,
                 style:
-                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -214,7 +214,7 @@ class StepsScreen extends StatelessWidget {
         children: [
           Text(title,
               style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Container(
             height: 200,
@@ -266,9 +266,9 @@ class TodayChart extends StatelessWidget {
         titlesData: FlTitlesData(
           show: true,
           rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           topTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -291,7 +291,7 @@ class TodayChart extends StatelessWidget {
         borderData: FlBorderData(show: false),
         barGroups: List.generate(24, (index) {
           final hourlyData = data.firstWhere(
-            (d) => d.hour.hour == index,
+                (d) => d.hour.hour == index,
             orElse: () => HourlySteps(hour: DateTime.now(), steps: 0),
           );
           return BarChartGroupData(
@@ -339,9 +339,9 @@ class WeeklyChart extends StatelessWidget {
         titlesData: FlTitlesData(
           show: true,
           rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           topTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,

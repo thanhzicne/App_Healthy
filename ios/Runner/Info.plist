@@ -56,6 +56,7 @@
 	<string>Ứng dụng cần truy cập camera để bạn có thể chụp ảnh đại diện mới.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Ứng dụng cần truy cập micro để ghi âm khi quay video (nếu có).</string>
-	
+	<key>NSMotionUsageDescription</key>
+    <string>Ứng dụng này cần truy cập dữ liệu chuyển động để đếm bước chân của bạn.</string>
 </dict>
 </plist>

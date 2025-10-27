@@ -1,4 +1,3 @@
-import 'package:app_healthcare/services/notification_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -7,7 +6,7 @@ import 'providers/user_provider.dart';
 import 'providers/water_provider.dart';
 import 'providers/weight_provider.dart';
 import 'providers/steps_provider.dart';
-import 'navigation/bottom_nav.dart'; // Giả sử bạn có file này để quản lý BottomNavigationBar
+import 'navigation/bottom_nav.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/steps_screen.dart';
@@ -17,9 +16,12 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-  await NotificationService().initialize();
+  try {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  } catch (e) {
+    // Xử lý lỗi nếu Firebase không khởi tạo được
+    print('Lỗi khởi tạo Firebase: $e');
+  }
   runApp(const MyApp());
 }
 
@@ -30,7 +32,6 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // *** THAY ĐỔI Ở ĐÂY: Bắt đầu tải dữ liệu ngay khi provider được tạo ***
         ChangeNotifierProvider(create: (_) => UserProvider()..loadUser()),
         ChangeNotifierProvider(create: (_) => WaterProvider()),
         ChangeNotifierProvider(create: (_) => WeightProvider()),
@@ -57,18 +58,14 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// Widget này sẽ lắng nghe trạng thái đăng nhập
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
-  // Hàm helper để tải tất cả dữ liệu ban đầu một cách an toàn
   Future<void> _loadInitialData(BuildContext context) async {
-    // Dữ liệu người dùng đã bắt đầu tải từ trước
-    // Giờ chúng ta chỉ cần tải các dữ liệu phụ thuộc
     await Future.wait([
       Provider.of<WaterProvider>(context, listen: false).loadWater(),
       Provider.of<WeightProvider>(context, listen: false).loadWeight(),
-      //Provider.of<StepsProvider>(context, listen: false).loadSteps(),
+      Provider.of<StepsProvider>(context, listen: false).loadData(), // Bỏ comment để tải dữ liệu
     ]);
   }
 
@@ -82,42 +79,69 @@ class AuthWrapper extends StatelessWidget {
         }
 
         if (snapshot.hasData) {
-          // Người dùng đã đăng nhập -> Dùng FutureBuilder để chờ dữ liệu được load
+          // Người dùng đã đăng nhập, chờ dữ liệu ban đầu được tải
           return FutureBuilder(
             future: _loadInitialData(context),
             builder: (context, loadSnapshot) {
               if (loadSnapshot.connectionState == ConnectionState.waiting) {
                 return const LoadingScreen();
               }
-              // Nếu load dữ liệu lỗi (có thể hiển thị màn hình lỗi)
               if (loadSnapshot.hasError) {
                 return ErrorScreen(error: loadSnapshot.error.toString());
               }
-              // Load xong -> Vào trang chính
+              // Dữ liệu đã tải xong, chuyển sang trang chính
               return const BottomNav();
             },
           );
         }
 
-        // Người dùng chưa đăng nhập -> Về màn hình Login
+        // Người dùng chưa đăng nhập, hiển thị màn hình login
         return const LoginScreen();
       },
     );
   }
 }
 
-// Các widget tiện ích (có thể đặt trong file riêng)
 class LoadingScreen extends StatelessWidget {
   const LoadingScreen({super.key});
+
   @override
-  Widget build(BuildContext context) =>
-      const Scaffold(body: Center(child: CircularProgressIndicator()));
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
+    );
+  }
 }
 
 class ErrorScreen extends StatelessWidget {
   final String error;
   const ErrorScreen({super.key, required this.error});
+
   @override
-  Widget build(BuildContext context) =>
-      Scaffold(body: Center(child: Text('Đã có lỗi xảy ra: $error')));
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error, color: Colors.red, size: 50),
+            const SizedBox(height: 10),
+            Text(
+              'Đã có lỗi xảy ra: $error',
+              style: const TextStyle(fontSize: 16, color: Colors.red),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                // Có thể thêm logic retry hoặc quay lại
+                Navigator.pushReplacementNamed(context, '/login');
+              },
+              child: const Text('Thử lại'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

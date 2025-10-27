@@ -17,21 +17,21 @@ class StepsModel {
   });
 
   Map<String, dynamic> toJson() => {
-        'steps': steps,
-        'goal': goal,
-        'distance': distance,
-        'calories': calories,
-        'lastUpdated': lastUpdated,
-      };
+    'steps': steps,
+    'goal': goal,
+    'distance': distance,
+    'calories': calories,
+    'lastUpdated': lastUpdated,
+  };
 
   factory StepsModel.fromJson(Map<String, dynamic> json) => StepsModel(
-        steps: json['steps'] ?? 0,
-        goal: json['goal'] ?? 10000,
-        distance: (json['distance'] ?? 0.0).toDouble(),
-        calories: (json['calories'] ?? 0.0).toDouble(),
-        // Xử lý cả Timestamp và dữ liệu cũ
-        lastUpdated: json['lastUpdated'] ?? Timestamp.now(),
-      );
+    steps: json['steps'] ?? 0,
+    goal: json['goal'] ?? 10000,
+    distance: (json['distance'] ?? 0.0).toDouble(),
+    calories: (json['calories'] ?? 0.0).toDouble(),
+    // Xử lý cả Timestamp và dữ liệu cũ
+    lastUpdated: json['lastUpdated'] ?? Timestamp.now(),
+  );
 }
 
 // Model cho dữ liệu bước chân hàng giờ (cho biểu đồ trong ngày)
