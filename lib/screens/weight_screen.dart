@@ -152,97 +152,96 @@ class _WeightScreenState extends State<WeightScreen>
             icon: const Icon(Icons.history, color: Colors.white),
             tooltip: 'Lịch sử cân nặng',
             onPressed: () {
-              // --- TOÀN BỘ LOGIC HIỂN THỊ LỊCH SỬ NẰM Ở ĐÂY ---
-
-              // Lấy provider (đã có sẵn trong hàm build)
               final weightProvider = context.read<WeightProvider>();
               final allWeights = weightProvider.weights;
 
               // Sắp xếp danh sách, mới nhất lên trước
               allWeights.sort((a, b) => b.dateTime.compareTo(a.dateTime));
 
-              // Lấy 5 mục gần nhất
+              // Lấy tối đa 5 mục gần nhất
               final recentWeights = allWeights.take(5).toList();
 
-              // Hiển thị Bottom Sheet
               showModalBottomSheet(
-                context: context, // Sử dụng context có sẵn từ hàm build
+                context: context,
                 shape: const RoundedRectangleBorder(
                   borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 ),
                 builder: (BuildContext bottomSheetContext) {
-                  return Container(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Lịch sử cân nặng (5 lần gần nhất)',
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.orange.shade700,
+                  return SingleChildScrollView(
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Lịch sử cân nặng (${recentWeights.length} lần gần nhất)',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.orange.shade700,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        if (recentWeights.isEmpty)
-                          Center(
-                            child: Text(
-                              'Chưa có dữ liệu nào.',
-                              style: GoogleFonts.poppins(fontSize: 16),
+                          const SizedBox(height: 16),
+                          if (recentWeights.isEmpty)
+                            Center(
+                              child: Text(
+                                'Chưa có dữ liệu nào.',
+                                style: GoogleFonts.poppins(fontSize: 16),
+                              ),
+                            )
+                          else
+                            ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: recentWeights.length,
+                              itemBuilder: (context, index) {
+                                final weightEntry = recentWeights[index];
+                                final formattedDate =
+                                    DateFormat('dd/MM/yyyy - hh:mm a')
+                                        .format(weightEntry.dateTime);
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: Colors.orange.shade100,
+                                    child: Icon(Icons.monitor_weight_outlined,
+                                        color: Colors.orange.shade800),
+                                  ),
+                                  title: Text(
+                                    '${weightEntry.currentWeight.toStringAsFixed(1)} kg',
+                                    style: GoogleFonts.poppins(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16),
+                                  ),
+                                  subtitle: Text(
+                                    formattedDate,
+                                    style: GoogleFonts.poppins(
+                                        color: Colors.grey.shade600),
+                                  ),
+                                );
+                              },
+                              separatorBuilder: (context, index) =>
+                                  const Divider(height: 1),
+                            ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: TextButton(
+                              child: Text(
+                                'Đóng',
+                                style: GoogleFonts.poppins(
+                                    color: Colors.blue.shade600,
+                                    fontWeight: FontWeight.w600),
+                              ),
+                              onPressed: () =>
+                                  Navigator.pop(bottomSheetContext),
                             ),
                           )
-                        else
-                          ListView.separated(
-                            shrinkWrap: true,
-                            itemCount: recentWeights.length,
-                            itemBuilder: (context, index) {
-                              final weightEntry = recentWeights[index];
-                              // Định dạng ngày tháng
-                              final formattedDate =
-                                  DateFormat('dd/MM/yyyy - hh:mm a')
-                                      .format(weightEntry.dateTime);
-                              return ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: Colors.orange.shade100,
-                                  child: Icon(Icons.monitor_weight_outlined,
-                                      color: Colors.orange.shade800),
-                                ),
-                                title: Text(
-                                  '${weightEntry.currentWeight.toStringAsFixed(1)} kg',
-                                  style: GoogleFonts.poppins(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16),
-                                ),
-                                subtitle: Text(
-                                  formattedDate,
-                                  style: GoogleFonts.poppins(
-                                      color: Colors.grey.shade600),
-                                ),
-                              );
-                            },
-                            separatorBuilder: (context, index) =>
-                                const Divider(height: 1),
-                          ),
-                        const SizedBox(height: 10),
-                        Center(
-                          child: TextButton(
-                            child: Text(
-                              'Đóng',
-                              style: GoogleFonts.poppins(
-                                  color: Colors.blue.shade600,
-                                  fontWeight: FontWeight.w600),
-                            ),
-                            onPressed: () => Navigator.pop(bottomSheetContext),
-                          ),
-                        )
-                      ],
+                        ],
+                      ),
                     ),
                   );
                 },
               );
-              // --- KẾT THÚC LOGIC HIỂN THỊ LỊCH SỬ ---
             },
           ),
         ],
@@ -252,9 +251,6 @@ class _WeightScreenState extends State<WeightScreen>
           children: [
             FadeTransition(
                 opacity: _staggerAnimations[0], child: _buildMainCard(weight)),
-
-            // <<< THAY ĐỔI: KIỂM TRA ĐỂ ẨN/HIỆN THẺ BMI VÀ MỤC TIÊU >>>
-            // Chỉ hiển thị các thẻ này nếu đã có dữ liệu cân nặng
             if (weights.isNotEmpty) ...[
               FadeTransition(
                   opacity: _staggerAnimations[1],
@@ -289,7 +285,6 @@ class _WeightScreenState extends State<WeightScreen>
                 ),
               ),
             ],
-
             const SizedBox(height: 20),
             FadeTransition(
               opacity: _staggerAnimations[3],
@@ -383,7 +378,6 @@ class _WeightScreenState extends State<WeightScreen>
     );
   }
 
-  // Các hàm build UI và dialog không thay đổi so với phiên bản trước
   Widget _buildMainCard(WeightModel weight) {
     return SlideTransition(
       position:
@@ -484,26 +478,29 @@ class _WeightScreenState extends State<WeightScreen>
             ]),
             const SizedBox(height: 16),
             ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: (bmi / 40).clamp(0, 1),
-                  minHeight: 6,
-                  backgroundColor: Colors.grey.shade300,
-                  valueColor: AlwaysStoppedAnimation<Color>(color),
-                )),
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: (bmi / 40).clamp(0, 1),
+                minHeight: 6,
+                backgroundColor: Colors.grey.shade300,
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+              ),
+            ),
             const SizedBox(height: 10),
+            // Đảm bảo cú pháp đúng cho Row
             const Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Thiếu cân',
-                      style: TextStyle(fontSize: 10, color: Color(0xFF9E9E9E))),
-                  Text('Bình thường',
-                      style: TextStyle(fontSize: 10, color: Color(0xFF9E9E9E))),
-                  Text('Thừa cân',
-                      style: TextStyle(fontSize: 10, color: Color(0xFF9E9E9E))),
-                  Text('Béo phì',
-                      style: TextStyle(fontSize: 10, color: Color(0xFF9E9E9E))),
-                ]),
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Thiếu cân',
+                    style: TextStyle(fontSize: 10, color: Color(0xFF9E9E9E))),
+                Text('Bình thường',
+                    style: TextStyle(fontSize: 10, color: Color(0xFF9E9E9E))),
+                Text('Thừa cân',
+                    style: TextStyle(fontSize: 10, color: Color(0xFF9E9E9E))),
+                Text('Béo phì',
+                    style: TextStyle(fontSize: 10, color: Color(0xFF9E9E9E))),
+              ],
+            ),
           ],
         ),
       ),
@@ -583,8 +580,8 @@ class _WeightScreenState extends State<WeightScreen>
           SizedBox(
             width: double.infinity,
             child: TextButton.icon(
-              icon: Icon(Icons.lightbulb_outline, size: 16),
-              label: Text('Áp dụng mục tiêu lý tưởng'),
+              icon: const Icon(Icons.lightbulb_outline, size: 16),
+              label: const Text('Áp dụng mục tiêu lý tưởng'),
               onPressed: () {
                 targetController.text = idealWeight.toStringAsFixed(1);
               },
