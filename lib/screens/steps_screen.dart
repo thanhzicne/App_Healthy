@@ -1,3 +1,4 @@
+// steps_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -6,6 +7,7 @@ import '../providers/steps_provider.dart';
 import '../models/steps_model.dart';
 import '../screens/steps_history_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/notification_service.dart';
 
 class StepsScreen extends StatelessWidget {
   const StepsScreen({super.key});
@@ -41,6 +43,18 @@ class StepsScreen extends StatelessWidget {
               ),
             ),
             actions: [
+              //Thêm IconButton cho thông báo
+              IconButton(
+                icon: const Icon(Icons.notifications, color: Colors.white),
+                onPressed: () async {
+                  // Gọi NotificationService để gửi thông báo
+                  await NotificationService().checkStepsGoalAndNotify(
+                    currentSteps: stepsData.steps,
+                    goal: stepsData.goal,
+                  );
+                },
+                tooltip: 'Gửi thông báo bước chân',
+              ),
               IconButton(
                 icon: const Icon(Icons.history, color: Colors.white),
                 onPressed: () {
@@ -130,7 +144,7 @@ class StepsScreen extends StatelessWidget {
                       _buildInfoCard(
                         icon: Icons.local_fire_department_rounded,
                         color: Colors.orange,
-                        title: 'Calo đốt chảy',
+                        title: 'Calo đốt cháy',
                         value: '${stepsData.calories.toStringAsFixed(0)} kcal',
                       ),
                       const SizedBox(width: 16),
@@ -199,7 +213,7 @@ class StepsScreen extends StatelessWidget {
             const SizedBox(height: 4),
             Text(value,
                 style:
-                const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -214,7 +228,7 @@ class StepsScreen extends StatelessWidget {
         children: [
           Text(title,
               style:
-              const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Container(
             height: 200,
@@ -245,10 +259,6 @@ class TodayChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (data.isEmpty) {
-      return const Center(child: Text("Chưa có dữ liệu hoạt động hôm nay."));
-    }
-
     return BarChart(
       BarChartData(
         alignment: BarChartAlignment.spaceAround,
@@ -257,8 +267,8 @@ class TodayChart extends StatelessWidget {
             tooltipBgColor: Colors.blueGrey,
             getTooltipItem: (group, groupIndex, rod, rodIndex) {
               return BarTooltipItem(
-                '${rod.toY.round()} bước',
-                const TextStyle(color: Colors.white),
+                '${group.x}h: ${rod.toY.round()} bước',
+                const TextStyle(color: Colors.white, fontSize: 12),
               );
             },
           ),
@@ -266,16 +276,19 @@ class TodayChart extends StatelessWidget {
         titlesData: FlTitlesData(
           show: true,
           rightTitles:
-          const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           topTitles:
-          const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
               getTitlesWidget: (value, meta) {
+                // ✅ Hiển thị mỗi 4 giờ: 0h, 4h, 8h, 12h, 16h, 20h
                 if (value.toInt() % 4 == 0) {
-                  return Text('${value.toInt()}h',
-                      style: const TextStyle(fontSize: 10));
+                  return Text(
+                    '${value.toInt()}h',
+                    style: const TextStyle(fontSize: 10),
+                  );
                 }
                 return const Text('');
               },
@@ -288,18 +301,25 @@ class TodayChart extends StatelessWidget {
         ),
         gridData: const FlGridData(show: false),
         borderData: FlBorderData(show: false),
+        // ✅ Luôn tạo 24 cột cho 24 giờ
         barGroups: List.generate(24, (index) {
-          final hourlyData = data.firstWhere(
-                (d) => d.hour.hour == index,
-            orElse: () => HourlySteps(hour: DateTime.now(), steps: 0),
-          );
+          // Tìm số bước cho giờ này trong data
+          int steps = 0;
+          for (var d in data) {
+            if (d.hour.hour == index) {
+              steps = d.steps;
+              break;
+            }
+          }
+
           return BarChartGroupData(
             x: index,
             barRods: [
               BarChartRodData(
-                toY: hourlyData.steps.toDouble(),
-                color: Colors.purple.shade300,
-                width: 8,
+                toY: steps.toDouble(),
+                color:
+                    steps > 0 ? Colors.purple.shade300 : Colors.grey.shade300,
+                width: 6,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(4),
                   topRight: Radius.circular(4),
@@ -320,9 +340,19 @@ class WeeklyChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (data.isEmpty) {
-      return const Center(
-          child: Text("Chưa đủ dữ liệu để hiển thị thống kê tuần."));
+    // ✅ Tạo danh sách 7 ngày gần nhất (từ 6 ngày trước đến hôm nay)
+    final now = DateTime.now();
+    final List<DateTime> last7Days = List.generate(7, (index) {
+      return DateTime(now.year, now.month, now.day)
+          .subtract(Duration(days: 6 - index));
+    });
+
+    // ✅ Map dữ liệu theo ngày
+    final Map<String, int> stepsMap = {};
+    for (var dailyStep in data) {
+      final dateKey =
+          '${dailyStep.date.year}-${dailyStep.date.month}-${dailyStep.date.day}';
+      stepsMap[dateKey] = dailyStep.steps;
     }
 
     return LineChart(
@@ -338,20 +368,21 @@ class WeeklyChart extends StatelessWidget {
         titlesData: FlTitlesData(
           show: true,
           rightTitles:
-          const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           topTitles:
-          const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 24,
               interval: 1,
               getTitlesWidget: (value, meta) {
-                if (value.toInt() < data.length) {
+                if (value.toInt() >= 0 && value.toInt() < 7) {
+                  final date = last7Days[value.toInt()];
                   return Padding(
                     padding: const EdgeInsets.only(top: 8.0),
                     child: Text(
-                      DateFormat('E', 'vi_VN').format(data[value.toInt()].date),
+                      DateFormat('E', 'vi_VN').format(date),
                       style: const TextStyle(fontSize: 11),
                     ),
                   );
@@ -365,16 +396,30 @@ class WeeklyChart extends StatelessWidget {
           ),
         ),
         borderData: FlBorderData(show: false),
+        minY: 0,
         lineBarsData: [
           LineChartBarData(
-            spots: List.generate(data.length, (index) {
-              return FlSpot(index.toDouble(), data[index].steps.toDouble());
+            spots: List.generate(7, (index) {
+              final date = last7Days[index];
+              final dateKey = '${date.year}-${date.month}-${date.day}';
+              final steps = stepsMap[dateKey] ?? 0;
+              return FlSpot(index.toDouble(), steps.toDouble());
             }),
             isCurved: true,
             color: Colors.green.shade400,
-            barWidth: 4,
+            barWidth: 3,
             isStrokeCapRound: true,
-            dotData: const FlDotData(show: false),
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) {
+                return FlDotCirclePainter(
+                  radius: 4,
+                  color: Colors.green.shade400,
+                  strokeWidth: 2,
+                  strokeColor: Colors.white,
+                );
+              },
+            ),
             belowBarData: BarAreaData(
               show: true,
               color: Colors.green.withOpacity(0.2),

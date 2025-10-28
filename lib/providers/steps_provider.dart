@@ -88,7 +88,8 @@ class StepsProvider with ChangeNotifier {
     int currentSystemSteps = event.steps;
     int newStepsFromSensor = currentSystemSteps - _initialSteps;
 
-    print("Current system steps: $currentSystemSteps, Initial: $_initialSteps, New steps: $newStepsFromSensor");
+    print(
+        "Current system steps: $currentSystemSteps, Initial: $_initialSteps, New steps: $newStepsFromSensor");
 
     if (newStepsFromSensor > 0) {
       int totalStepsToday = _steps.steps + newStepsFromSensor;
@@ -111,7 +112,8 @@ class StepsProvider with ChangeNotifier {
     _steps.distance = newTotalSteps * 0.000762;
     _steps.lastUpdated = Timestamp.now();
 
-    print("Updated steps: ${_steps.steps}, Calories: ${_steps.calories}, Distance: ${_steps.distance}");
+    print(
+        "Updated steps: ${_steps.steps}, Calories: ${_steps.calories}, Distance: ${_steps.distance}");
 
     // Cập nhật biểu đồ hourly
     _updateHourlyChart();
@@ -123,7 +125,6 @@ class StepsProvider with ChangeNotifier {
   // Cập nhật biểu đồ hourly tự động
   void _updateHourlyChart() {
     DateTime now = DateTime.now();
-    String hourDocId = "${now.year}-${now.month}-${now.day}-${now.hour}";
 
     // Tìm xem giờ hiện tại có trong danh sách hourlySteps chưa
     int existingIndex = _hourlySteps.indexWhere((h) => h.hour.hour == now.hour);
@@ -145,7 +146,10 @@ class StepsProvider with ChangeNotifier {
   Future<void> loadData() async {
     if (uid == null) {
       print("Waiting for user to login...");
-      FirebaseAuth.instance.authStateChanges().firstWhere((user) => user != null).then((_) {
+      FirebaseAuth.instance
+          .authStateChanges()
+          .firstWhere((user) => user != null)
+          .then((_) {
         loadData();
       });
       return;
@@ -165,6 +169,7 @@ class StepsProvider with ChangeNotifier {
 
       await _archiveYesterdayDataIfNeeded();
       await _loadChartData();
+
       await _initPedometer();
 
       notifyListeners();
@@ -187,10 +192,14 @@ class StepsProvider with ChangeNotifier {
           .doc('today')
           .collection('hourly')
           .doc(hourDocId)
-          .set({
-        'hour': Timestamp.fromDate(DateTime(now.year, now.month, now.day, now.hour)),
-        'steps': _steps.steps
-      }, SetOptions(merge: true));
+          .set(
+        {
+          'hour': Timestamp.fromDate(
+              DateTime(now.year, now.month, now.day, now.hour)),
+          'steps': _steps.steps
+        },
+        SetOptions(merge: true),
+      );
 
       _lastSavedSteps = _steps.steps;
       print("Data saved to Firestore: ${_steps.steps} steps");
@@ -199,57 +208,92 @@ class StepsProvider with ChangeNotifier {
     }
   }
 
-  // Hàm kiểm tra xem dữ liệu _steps có phải của hôm qua không
+  // ✅ FIXED: Lưu số bước cao nhất của hôm qua
+  // ✅ Sửa hàm _archiveYesterdayDataIfNeeded để lưu cả hourly data
   Future<void> _archiveYesterdayDataIfNeeded() async {
     final lastUpdateDate = _steps.lastUpdated.toDate();
     final now = DateTime.now();
-
-    final lastUpdateDay = DateTime(lastUpdateDate.year, lastUpdateDate.month, lastUpdateDate.day);
+    final lastUpdateDay =
+        DateTime(lastUpdateDate.year, lastUpdateDate.month, lastUpdateDate.day);
     final today = DateTime(now.year, now.month, now.day);
 
-    if (lastUpdateDay.isBefore(today)) {
-      print("Archiving yesterday's data...");
+    print(
+        "📄 Kiểm tra lưu lịch sử - LastUpdate: $lastUpdateDay, Today: $today");
 
+    if (lastUpdateDay.isBefore(today)) {
+      print("📄 Phát hiện ngày mới - Lưu dữ liệu bước chân hôm qua");
       try {
         String yesterdayDocId =
             "${lastUpdateDate.year}-${lastUpdateDate.month}-${lastUpdateDate.day}";
+        int maxStepsYesterday = _steps.steps;
 
+        // ✅ Lấy tất cả hourly data
+        var hourlySnapshot =
+            await _userCollection.doc('today').collection('hourly').get();
+
+        // Tìm max steps
+        for (var doc in hourlySnapshot.docs) {
+          final stepsValue = doc.data()['steps'] ?? 0;
+          if (stepsValue > maxStepsYesterday) {
+            maxStepsYesterday = stepsValue;
+          }
+        }
+
+        final caloriesYesterday = maxStepsYesterday * 0.04;
+        final distanceYesterday = maxStepsYesterday * 0.000762;
+
+        print('💾 Lưu dữ liệu hôm qua - Max steps: $maxStepsYesterday');
+
+        // ✅ Lưu daily summary
         await _userCollection
             .doc('history')
             .collection('daily')
             .doc(yesterdayDocId)
             .set({
           'date': Timestamp.fromDate(lastUpdateDate),
-          'steps': _steps.steps,
-          'calories': _steps.calories,
+          'steps': maxStepsYesterday,
+          'calories': caloriesYesterday,
+          'distance': distanceYesterday,
         });
 
+        // ✅ Lưu hourly data vào history
+        for (var doc in hourlySnapshot.docs) {
+          final hourData = doc.data();
+          await _userCollection
+              .doc('history')
+              .collection('daily')
+              .doc(yesterdayDocId)
+              .collection('hourly')
+              .doc(doc.id)
+              .set(hourData);
+        }
+
+        // Reset dữ liệu hôm nay
         _steps = StepsModel(lastUpdated: Timestamp.now(), goal: _steps.goal);
         _lastSavedSteps = 0;
-        _hourlySteps.clear(); // Xóa dữ liệu hourly cũ
+        _hourlySteps.clear();
 
-        var snapshot = await _userCollection
-            .doc('today')
-            .collection('hourly')
-            .get();
-
-        for (var doc in snapshot.docs) {
+        // Xóa hourly data cũ
+        for (var doc in hourlySnapshot.docs) {
           await doc.reference.delete();
         }
 
         await _userCollection.doc('today').set(_steps.toJson());
-        print("Reset steps for today.");
+        print("✅ Reset bước chân cho hôm nay thành công");
+
+        await _loadChartData();
       } catch (e) {
         print("Error archiving yesterday's data: $e");
       }
     }
   }
 
-  // Lấy dữ liệu cho biểu đồ từ Firestore
+  // ✅ FIXED: Lấy đúng 7 ngày (không tự thêm cho đủ)
   Future<void> _loadChartData() async {
     if (uid == null) return;
 
     try {
+      // ✅ Lấy dữ liệu hourly hôm nay (24 cột)
       var hourlySnapshot = await _userCollection
           .doc('today')
           .collection('hourly')
@@ -259,6 +303,7 @@ class StepsProvider with ChangeNotifier {
           .map((doc) => HourlySteps.fromJson(doc.data()))
           .toList();
 
+      // ✅ Lấy tối đa 7 ngày (chỉ các ngày đã có, không tự thêm)
       var dailySnapshot = await _userCollection
           .doc('history')
           .collection('daily')
@@ -271,9 +316,60 @@ class StepsProvider with ChangeNotifier {
           .reversed
           .toList();
 
-      print("Loaded hourly steps: ${_hourlySteps.length}, Daily steps: ${_dailySteps.length}");
+      print(
+          "✅ Loaded chart data - Hourly steps: ${_hourlySteps.length} giờ, Daily steps: ${_dailySteps.length} ngày");
     } catch (e) {
       print("Error loading chart data: $e");
     }
+  }
+  //thêm dữ liệu từ nút cài đặt trong profile
+  Future<void> updateGoal(int newGoal) async {
+    if (uid == null || newGoal <= 0) return;
+
+    _steps.goal = newGoal;
+
+    await saveData(); // Lưu dữ liệu (bao gồm cả goal mới)
+    notifyListeners();
+  }
+  //xoá dữ liệu từ nút cài ặt trong profile
+  Future<void> clearAllData() async {
+    if (uid == null) return;
+    print("--- 🗑️ Bắt đầu xóa tất cả dữ liệu bước chân ---");
+
+    try {
+      // 1. Xóa hourly data của hôm nay
+      var hourlySnapshot = await _userCollection.doc('today').collection('hourly').get();
+      for (var doc in hourlySnapshot.docs) {
+        await doc.reference.delete();
+      }
+
+      // 2. Xóa doc 'today'
+      await _userCollection.doc('today').delete();
+
+      // 3. Xóa data lịch sử (history)
+      var historySnapshot = await _userCollection.doc('history').collection('daily').get();
+      for (var doc in historySnapshot.docs) {
+        // Xóa sub-collection 'hourly' trong từng ngày lịch sử (nếu có)
+        var histHourlySnapshot = await doc.reference.collection('hourly').get();
+        for (var hDoc in histHourlySnapshot.docs) {
+          await hDoc.reference.delete();
+        }
+        // Xóa doc của ngày đó
+        await doc.reference.delete();
+      }
+
+      // 4. Reset state local
+      _steps = StepsModel(lastUpdated: Timestamp.now(), goal: _steps.goal); // Giữ lại goal
+      _hourlySteps.clear();
+      _dailySteps.clear();
+      _initialSteps = 0;
+      _lastSavedSteps = 0;
+
+      print("--- ✅ Đã xóa tất cả dữ liệu bước chân ---");
+
+    } catch (e) {
+      print("❌ Lỗi khi xóa dữ liệu bước chân: $e");
+    }
+    notifyListeners();
   }
 }

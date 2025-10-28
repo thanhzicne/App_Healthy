@@ -33,7 +33,7 @@ class _WaterScreenState extends State<WaterScreen>
 
     _staggerAnimations = List.generate(
       7,
-          (index) => Tween<double>(begin: 0, end: 1).animate(
+      (index) => Tween<double>(begin: 0, end: 1).animate(
         CurvedAnimation(
           parent: _animationController,
           curve: Interval(
@@ -89,7 +89,7 @@ class _WaterScreenState extends State<WaterScreen>
     Future.delayed(duration, () async {
       if (mounted) {
         final waterProvider =
-        Provider.of<WaterProvider>(context, listen: false);
+            Provider.of<WaterProvider>(context, listen: false);
         await waterProvider.sendEndOfDaySummary();
 
         // Sau đó lên lịch cho ngày hôm sau
@@ -106,12 +106,12 @@ class _WaterScreenState extends State<WaterScreen>
         title: const Text('⏰ Cấu hình nhắc nhở'),
         content: const Text(
           'Bạn sẽ nhận được nhắc nhở lúc:\n'
-              '• 8:00 - Sáng\n'
-              '• 12:00 - Trưa\n'
-              '• 15:00 - Chiều\n'
-              '• 18:00 - Tối\n'
-              '• 21:00 - Tối muộn\n'
-              '• 22:00 - Tóm tắt ngày',
+          '• 8:00 - Sáng\n'
+          '• 12:00 - Trưa\n'
+          '• 15:00 - Chiều\n'
+          '• 18:00 - Tối\n'
+          '• 21:00 - Tối muộn\n'
+          '• 22:00 - Tóm tắt ngày',
         ),
         actions: [
           TextButton(
@@ -695,16 +695,16 @@ class _WaterScreenState extends State<WaterScreen>
                           colors: goalAchievement >= 100
                               ? [Colors.green.shade400, Colors.green.shade600]
                               : [
-                            Colors.purple.shade400,
-                            Colors.purple.shade600
-                          ],
+                                  Colors.purple.shade400,
+                                  Colors.purple.shade600
+                                ],
                         ),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
                             color: (goalAchievement >= 100
-                                ? Colors.green
-                                : Colors.purple)
+                                    ? Colors.green
+                                    : Colors.purple)
                                 .withOpacity(0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
@@ -733,7 +733,7 @@ class _WaterScreenState extends State<WaterScreen>
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 1.3,
+                childAspectRatio: 1.2,
                 children: [
                   _buildEnhancedStatsCard(
                     'Tổng lượng nước',
@@ -843,7 +843,7 @@ class _WaterScreenState extends State<WaterScreen>
                         const SizedBox(height: 30),
                         ProgressRing(
                           value:
-                          (water.cupsDrunk / water.totalCups).clamp(0, 1),
+                              (water.cupsDrunk / water.totalCups).clamp(0, 1),
                           label: '${water.cupsDrunk}/${water.totalCups}',
                         ),
                         const SizedBox(height: 25),
@@ -977,13 +977,13 @@ class _WaterScreenState extends State<WaterScreen>
                             gradient: LinearGradient(
                               colors: water.cupsDrunk >= water.totalCups
                                   ? [
-                                Colors.green.shade300,
-                                Colors.green.shade500
-                              ]
+                                      Colors.green.shade300,
+                                      Colors.green.shade500
+                                    ]
                                   : [
-                                Colors.amber.shade300,
-                                Colors.orange.shade400
-                              ],
+                                      Colors.amber.shade300,
+                                      Colors.orange.shade400
+                                    ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
@@ -991,8 +991,8 @@ class _WaterScreenState extends State<WaterScreen>
                             boxShadow: [
                               BoxShadow(
                                 color: (water.cupsDrunk >= water.totalCups
-                                    ? Colors.green
-                                    : Colors.orange)
+                                        ? Colors.green
+                                        : Colors.orange)
                                     .withOpacity(0.3),
                                 blurRadius: 8,
                                 offset: const Offset(0, 4),
@@ -1278,12 +1278,12 @@ class _WaterScreenState extends State<WaterScreen>
                                   show: true,
                                   getDotPainter:
                                       (spot, percent, barData, index) =>
-                                      FlDotCirclePainter(
-                                        radius: 5,
-                                        color: Colors.white,
-                                        strokeWidth: 3,
-                                        strokeColor: Colors.blue.shade700,
-                                      ),
+                                          FlDotCirclePainter(
+                                    radius: 5,
+                                    color: Colors.white,
+                                    strokeWidth: 3,
+                                    strokeColor: Colors.blue.shade700,
+                                  ),
                                 ),
                                 belowBarData: BarAreaData(
                                   show: true,
@@ -1490,12 +1490,12 @@ class _WaterScreenState extends State<WaterScreen>
                                   show: true,
                                   getDotPainter:
                                       (spot, percent, barData, index) =>
-                                      FlDotCirclePainter(
-                                        radius: 5,
-                                        color: Colors.white,
-                                        strokeWidth: 3,
-                                        strokeColor: Colors.green.shade700,
-                                      ),
+                                          FlDotCirclePainter(
+                                    radius: 5,
+                                    color: Colors.white,
+                                    strokeWidth: 3,
+                                    strokeColor: Colors.green.shade700,
+                                  ),
                                 ),
                                 belowBarData: BarAreaData(
                                   show: true,
@@ -1521,7 +1521,7 @@ class _WaterScreenState extends State<WaterScreen>
                                     show: true,
                                     alignment: Alignment.topRight,
                                     padding:
-                                    const EdgeInsets.only(top: 5, right: 5),
+                                        const EdgeInsets.only(top: 5, right: 5),
                                     style: GoogleFonts.poppins(
                                       color: Colors.red.shade700,
                                       fontSize: 11,
@@ -1539,7 +1539,7 @@ class _WaterScreenState extends State<WaterScreen>
                                     show: true,
                                     alignment: Alignment.topRight,
                                     padding:
-                                    const EdgeInsets.only(top: 5, right: 5),
+                                        const EdgeInsets.only(top: 5, right: 5),
                                     style: GoogleFonts.poppins(
                                       color: Colors.green.shade700,
                                       fontSize: 11,
@@ -1557,7 +1557,7 @@ class _WaterScreenState extends State<WaterScreen>
                                     show: true,
                                     alignment: Alignment.topRight,
                                     padding:
-                                    const EdgeInsets.only(top: 5, right: 5),
+                                        const EdgeInsets.only(top: 5, right: 5),
                                     style: GoogleFonts.poppins(
                                       color: Colors.orange.shade700,
                                       fontSize: 11,

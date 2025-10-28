@@ -1,6 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'providers/user_provider.dart';
 import 'providers/water_provider.dart';
@@ -17,11 +19,17 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ✅ Khởi tạo locale cho intl (BẮT BUỘC)
+  await initializeDateFormatting('vi_VN', null);
+
   try {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform);
   } catch (e) {
     print('Lỗi khởi tạo Firebase: $e');
   }
+
   runApp(const MyApp());
 }
 
@@ -40,6 +48,19 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Health App',
         debugShowCheckedModeBanner: false,
+
+        // ✅ Thêm localization delegates (BẮT BUỘC cho tiếng Việt)
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('vi', 'VN'),
+          Locale('en', 'US'),
+        ],
+        locale: const Locale('vi', 'VN'),
+
         theme: ThemeData(
           primarySwatch: Colors.blue,
           useMaterial3: true,

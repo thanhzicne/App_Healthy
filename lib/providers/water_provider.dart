@@ -3,16 +3,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../models/water_intake_model.dart';
-
-// Import NotificationService
-// import '../services/notification_service.dart';
 import '../services/notification_service.dart';
 import '../services/water_notification_handler.dart';
 
 class WaterProvider with ChangeNotifier {
   WaterIntakeModel _water = WaterIntakeModel();
   UserModel? _user;
-  // final _notificationService = NotificationService();
   final _notificationService = NotificationService();
   final _notificationHandler = WaterNotificationHandler();
 
@@ -25,7 +21,7 @@ class WaterProvider with ChangeNotifier {
 
     // Load user data
     DocumentSnapshot userDoc =
-    await FirebaseFirestore.instance.collection('users').doc(uid).get();
+        await FirebaseFirestore.instance.collection('users').doc(uid).get();
     if (userDoc.exists) {
       _user = UserModel.fromJson(userDoc.data() as Map<String, dynamic>);
       _water.mlGoal = _calculateWaterGoal(_user!);
@@ -40,16 +36,16 @@ class WaterProvider with ChangeNotifier {
     if (waterDoc.exists) {
       _water =
           WaterIntakeModel.fromJson(waterDoc.data() as Map<String, dynamic>);
+
+      // ✅ FIXED: Kiểm tra xem có phải ngày mới không
       if (_isNewDay(_water.lastResetDate)) {
+        print('🔄 Phát hiện ngày mới - Reset dữ liệu nước uống');
         await _savePreviousDayTotal();
         await resetDailyIntake();
       }
       _pruneDailyIntake();
       await _updateFirestore();
     }
-
-    // Lên lịch thông báo nhắc nhở
-    // await _setupDailyReminders();
 
     notifyListeners();
   }
@@ -61,14 +57,10 @@ class WaterProvider with ChangeNotifier {
     _water.hourlyIntake[hourKey] = (_water.hourlyIntake[hourKey] ?? 0) + ml;
 
     await _updateFirestore();
-
-    // Kiểm tra và thông báo nếu cần
     await _checkProgressAndNotify();
-
     notifyListeners();
   }
 
-  /// ✅ THÊM: Thêm nước VÀ tự động gửi thông báo
   Future<void> addWaterWithNotification(int ml) async {
     if (FirebaseAuth.instance.currentUser == null) return;
 
@@ -78,18 +70,16 @@ class WaterProvider with ChangeNotifier {
 
     await _updateFirestore();
 
-    // Lấy thông tin hiện tại
     final currentIntake = getCurrentDailyIntake();
     final goal = _water.mlGoal;
 
-    // Gửi thông báo dựa trên lượng nước hiện tại
     await _notificationHandler.handleWaterIntakeNotification(
       currentIntake: currentIntake,
       goal: goal,
       timestamp: DateTime.now(),
     );
 
-    print('📱 Đã cập nhật lượng nước và gửi thông báo');
+    print('🔔 Đã cập nhật lượng nước và gửi thông báo');
 
     notifyListeners();
   }
@@ -99,13 +89,27 @@ class WaterProvider with ChangeNotifier {
     _water.hourlyIntake.clear();
     _water.lastResetDate = DateTime.now();
     await _updateFirestore();
+    print('✅ Reset nước uống hôm nay thành công');
   }
 
+  // ✅ FIXED: Lưu lại giá trị cao nhất của ngày hôm qua
   Future<void> _savePreviousDayTotal() async {
     final previousDay = _water.lastResetDate.toString().substring(0, 10);
     final dailyTotal =
-    _water.hourlyIntake.values.fold(0, (sum, ml) => sum + ml);
+        _water.hourlyIntake.values.fold(0, (sum, ml) => sum + ml);
+
+    // Lưu tổng lượng nước trong ngày
     _water.dailyIntake[previousDay] = dailyTotal;
+
+    // ✅ LƯU GIÁ TRỊ MAX: Tìm giá trị cao nhất từ hourly data
+    final dailyMax = _water.hourlyIntake.values.isNotEmpty
+        ? _water.hourlyIntake.values.reduce((a, b) => a > b ? a : b)
+        : dailyTotal;
+
+    _water.dailyIntakeMax[previousDay] = dailyMax;
+
+    print(
+        '💾 Lưu dữ liệu ngày hôm qua - Tổng: $dailyTotal ml, Max: $dailyMax ml');
     await _updateFirestore();
   }
 
@@ -115,8 +119,10 @@ class WaterProvider with ChangeNotifier {
       final date = DateTime.parse(dateStr);
       return now.difference(date).inDays >= 7;
     }).toList();
+
     for (var key in keysToRemove) {
       _water.dailyIntake.remove(key);
+      _water.dailyIntakeMax.remove(key);
     }
   }
 
@@ -143,15 +149,6 @@ class WaterProvider with ChangeNotifier {
     return baseWeight * mlPerKg;
   }
 
-  // Thiết lập thông báo nhắc nhở hàng ngày
-  Future<void> _setupDailyReminders() async {
-    // Uncomment để kích hoạt
-    // await _notificationService.scheduleDailyReminders(
-    //   hours: [9, 12, 15, 18, 21], // Nhắc vào 9h, 12h, 15h, 18h, 21h
-    // );
-  }
-
-  /// ✅ THÊM: Khởi tạo nhắc nhở hàng ngày
   Future<void> initializeDailyReminders() async {
     try {
       final reminderHours = [8, 12, 15, 18, 21];
@@ -167,13 +164,11 @@ class WaterProvider with ChangeNotifier {
     }
   }
 
-  /// ✅ THÊM: Gửi thông báo thống kê cuối ngày
   Future<void> sendEndOfDaySummary() async {
     try {
       final dailyStats = getDailyStats(DateTime.now());
       final totalIntake = dailyStats['intake'] ?? 0.0;
       final goal = dailyStats['goal'] ?? _water.mlGoal;
-
       final daysStreak = _calculateStreakDays();
 
       await _notificationHandler.sendDailySummary(
@@ -188,12 +183,10 @@ class WaterProvider with ChangeNotifier {
     }
   }
 
-  /// ✅ THÊM: Gửi thông báo khuyến khích
   Future<void> sendMotivation() async {
     await _notificationHandler.sendMotivationNotification();
   }
 
-  /// ✅ THÊM: Tính toán chuỗi liên tiếp
   int _calculateStreakDays() {
     int streak = 0;
     final now = DateTime.now();
@@ -215,34 +208,24 @@ class WaterProvider with ChangeNotifier {
     return streak;
   }
 
-  /// ✅ THÊM: Hủy tất cả thông báo
   Future<void> cancelAllNotifications() async {
     await _notificationHandler.cancelAllNotifications();
   }
 
-  // Kiểm tra tiến độ và gửi thông báo
   Future<void> _checkProgressAndNotify() async {
     final currentIntake = getCurrentDailyIntake();
     final hour = DateTime.now().hour;
 
-    // Chỉ thông báo vào các mốc giờ nhất định (10h, 14h, 18h, 20h)
     if ([10, 14, 18, 20].contains(hour)) {
       final expectedIntake = _getExpectedIntakeByTime(hour);
 
       if (currentIntake < expectedIntake) {
-        // Uncomment để kích hoạt
-        // await _notificationService.checkAndNotify(
-        //   currentIntake: currentIntake.toDouble(),
-        //   goal: _water.mlGoal,
-        // );
+        // Notification logic
       }
     }
   }
 
-  // Tính lượng nước dự kiến uống được theo giờ
   double _getExpectedIntakeByTime(int hour) {
-    // Phân bổ mục tiêu theo thời gian trong ngày
-    // 6h-12h: 30%, 12h-18h: 40%, 18h-22h: 30%
     if (hour < 12) {
       return _water.mlGoal * 0.3 * (hour - 6) / 6;
     } else if (hour < 18) {
@@ -252,12 +235,10 @@ class WaterProvider with ChangeNotifier {
     }
   }
 
-  // Lấy lượng nước đã uống trong ngày
   double getCurrentDailyIntake() {
     return _water.hourlyIntake.values.fold(0, (sum, ml) => sum + ml).toDouble();
   }
 
-  // Get daily statistics
   Map<String, dynamic> getDailyStats(DateTime date) {
     final now = DateTime.now();
     int intake = 0;
@@ -280,13 +261,12 @@ class WaterProvider with ChangeNotifier {
     };
   }
 
-  // Get monthly statistics
   Map<String, dynamic> getMonthlyStats(int year, int month) {
     double totalIntake = 0;
     int daysTracked = 0;
 
     final todayIntake =
-    _water.hourlyIntake.values.fold(0, (sum, ml) => sum + ml);
+        _water.hourlyIntake.values.fold(0, (sum, ml) => sum + ml);
 
     Map<String, int> monthData = Map.from(_water.dailyIntake);
     final todayStr = DateTime.now().toString().substring(0, 10);
@@ -315,13 +295,43 @@ class WaterProvider with ChangeNotifier {
     };
   }
 
-  // Phương thức để người dùng test thông báo
   Future<void> testNotification() async {
     final currentIntake = getCurrentDailyIntake();
-    // Uncomment để kích hoạt
-    // await _notificationService.checkAndNotify(
-    //   currentIntake: currentIntake,
-    //   goal: _water.mlGoal,
-    // );
+  }
+  //Câ nhật dữ liệu từ nút cài đặt trong profile
+  Future<void> updateGoal(int newGoal) async {
+    if (FirebaseAuth.instance.currentUser == null || newGoal <= 0) return;
+
+    _water.mlGoal = newGoal.toDouble();
+    _water.totalCups = (newGoal / 250).ceil();
+
+    await _updateFirestore(); // Lưu vào Firebase
+    notifyListeners();
+  }
+  //xoá dữ liệu từ nút cài đặt trong profile
+  Future<void> clearAllData() async {
+    if (FirebaseAuth.instance.currentUser == null) return;
+    String uid = FirebaseAuth.instance.currentUser!.uid;
+
+    // Reset local data
+    _water = WaterIntakeModel();
+    // Tính toán lại mục tiêu default nếu có thông tin user
+    if (_user != null) {
+      _water.mlGoal = _calculateWaterGoal(_user!);
+      _water.totalCups = (_water.mlGoal / 250).ceil();
+    }
+
+    try {
+      // Xóa document trên Firestore
+      await FirebaseFirestore.instance
+          .collection('water_intakes')
+          .doc(uid)
+          .delete();
+      print('🗑️ Đã xóa dữ liệu nước trên Firestore');
+    } catch (e) {
+      print('❌ Lỗi khi xóa dữ liệu nước: $e');
+    }
+
+    notifyListeners();
   }
 }

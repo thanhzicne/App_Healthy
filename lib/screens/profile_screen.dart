@@ -10,6 +10,7 @@ import 'dart:typed_data';
 import '../providers/user_provider.dart';
 import '../providers/weight_provider.dart';
 import '../models/user_model.dart';
+import '../screens/settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -336,13 +337,13 @@ class _ProfileScreenState extends State<ProfileScreen>
           ? userProvider.user.height.toString()
           : '',
     );
-
     showDialog(
       context: context,
       // Store the context from the builder to use after await
       builder: (dialogContext) => AlertDialog(
         title: const Text('Cập nhật thông tin'),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -490,7 +491,13 @@ class _ProfileScreenState extends State<ProfileScreen>
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white),
             onPressed: () {
-              print("Cài đặt!");
+              // ✅ Thay thế print bằng điều hướng
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
             },
             tooltip: 'Cài đặt',
           ),
@@ -674,10 +681,8 @@ class _ProfileScreenState extends State<ProfileScreen>
           const SizedBox(height: 12),
           _buildActionButton(
             onPressed: () async {
-              // Store context before showing dialog
-              final BuildContext currentContext = context;
               final confirm = await showDialog<bool>(
-                context: currentContext, // Use stored context
+                context: context,
                 builder: (dialogContext) => AlertDialog(
                   title: const Text('Xác nhận đăng xuất'),
                   content: const Text('Bạn có chắc chắn muốn đăng xuất?'),
@@ -697,16 +702,21 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
               );
 
-              // *** ADD MOUNTED CHECK HERE ***
               if (!mounted) return;
 
               if (confirm == true) {
                 try {
+                  // Sign out from Firebase
                   await FirebaseAuth.instance.signOut();
-                  // Ideally, navigate to login screen after logout
-                  // Consider using Navigator.of(currentContext)... if needed
+
+                  if (!mounted) return;
+
+                  // Navigate to login screen and remove all previous routes
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    '/login', // Đảm bảo route này đã được định nghĩa trong MaterialApp
+                        (route) => false,
+                  );
                 } catch (e) {
-                  // Use _showErrorSnackBar which already checks mounted
                   _showErrorSnackBar('Đăng xuất thất bại: $e');
                 }
               }

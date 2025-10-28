@@ -5,7 +5,7 @@ import 'notification_service.dart';
 
 class WaterNotificationHandler {
   static final WaterNotificationHandler _instance =
-  WaterNotificationHandler._internal();
+      WaterNotificationHandler._internal();
 
   factory WaterNotificationHandler() => _instance;
   WaterNotificationHandler._internal();
@@ -64,7 +64,8 @@ class WaterNotificationHandler {
   Future<void> _sendStartedNotification(int progress, int remaining) async {
     await _notificationService.showInstantNotification(
       title: '💧 Tốt lắm!',
-      body: '🎯 Bạn đã uống được $progress% mục tiêu. Cố gắng thêm nhé! Còn $remaining ml nữa thôi.',
+      body:
+          '🎯 Bạn đã uống được $progress% mục tiêu. Cố gắng thêm nhé! Còn $remaining ml nữa thôi.',
       payload: 'progress_started',
     );
   }
@@ -73,7 +74,8 @@ class WaterNotificationHandler {
   Future<void> _sendHalfwayNotification(int progress, int remaining) async {
     await _notificationService.showInstantNotification(
       title: '⚡ Đã nửa đường rồi!',
-      body: '✨ Bạn đã đạt $progress% mục tiêu. Tiếp tục giữ vững nhé! Còn $remaining ml nữa.',
+      body:
+          '✨ Bạn đã đạt $progress% mục tiêu. Tiếp tục giữ vững nhé! Còn $remaining ml nữa.',
       payload: 'progress_halfway',
     );
   }
@@ -82,7 +84,8 @@ class WaterNotificationHandler {
   Future<void> _sendNearGoalNotification(int progress, int remaining) async {
     await _notificationService.showInstantNotification(
       title: '🔥 Sắp xong rồi!',
-      body: '🎉 Bạn đã đạt $progress% mục tiêu. Chỉ còn $remaining ml nữa thôi!',
+      body:
+          '🎉 Bạn đã đạt $progress% mục tiêu. Chỉ còn $remaining ml nữa thôi!',
       payload: 'progress_near',
     );
   }
@@ -93,17 +96,20 @@ class WaterNotificationHandler {
     final surplus = (currentIntake - goal).toInt();
     await _notificationService.showInstantNotification(
       title: '🎉 Chúc mừng!',
-      body: '🏆 Bạn đã hoàn thành mục tiêu uống nước hôm nay! (Uống thêm ${surplus}ml)',
+      body:
+          '🏆 Bạn đã hoàn thành mục tiêu uống nước hôm nay! (Uống thêm ${surplus}ml)',
       payload: 'goal_achieved',
     );
   }
 
   /// Thông báo vượt mục tiêu
-  Future<void> _sendOverLimitNotification(double currentIntake, double goal) async {
+  Future<void> _sendOverLimitNotification(
+      double currentIntake, double goal) async {
     final excess = (currentIntake - goal * 1.5).toInt();
     await _notificationService.showInstantNotification(
       title: '⚠️ Cảnh báo!',
-      body: '🚨 Bạn đã uống quá nhiều nước (${currentIntake.toInt()}ml). Hãy giảm lượng nước để tránh nguy hiểm cho sức khỏe. (Vượt ${excess}ml)',
+      body:
+          '🚨 Bạn đã uống quá nhiều nước (${currentIntake.toInt()}ml). Hãy giảm lượng nước để tránh nguy hiểm cho sức khỏe. (Vượt ${excess}ml)',
       payload: 'over_limit',
     );
   }
@@ -115,7 +121,7 @@ class WaterNotificationHandler {
   }) async {
     try {
       print('📅 Đang lên lịch nhắc nhở uống nước...');
-      await _notificationService.scheduleDailyReminders(
+      await _notificationService.scheduleDailyWaterReminders(
         hours: reminderHours,
       );
       print('✅ Đã lên lịch ${reminderHours.length} nhắc nhở');
@@ -130,7 +136,8 @@ class WaterNotificationHandler {
       final remainingGoal = goal.toInt();
       await _notificationService.showInstantNotification(
         title: '⏰ Giờ uống nước rồi!',
-        body: '💧 Đã đến ${hour}:00. Bạn cần uống khoảng $remainingGoal ml nước để đạt mục tiêu hôm nay.',
+        body:
+            '💧 Đã đến ${hour}:00. Bạn cần uống khoảng $remainingGoal ml nước để đạt mục tiêu hôm nay.',
         payload: 'scheduled_reminder_$hour',
       );
       print('✅ Đã gửi nhắc nhở lúc $hour:00');
@@ -141,8 +148,8 @@ class WaterNotificationHandler {
 
   /// Thông báo thống kê hàng ngày
   Future<void> sendDailySummary({
-    required double totalIntake,
-    required double goal,
+    required num totalIntake, //Chấp nhận cả int và double
+    required num goal,
     required int daysStreak,
   }) async {
     try {
@@ -151,7 +158,8 @@ class WaterNotificationHandler {
 
       await _notificationService.showInstantNotification(
         title: '📊 Tóm tắt ngày hôm nay',
-        body: 'Bạn uống $percentage% mục tiêu (${totalIntake.toInt()}ml / ${goal.toInt()}ml)\n$status\nChuỗi liên tiếp: $daysStreak ngày 🔥',
+        body:
+            'Bạn uống $percentage% mục tiêu (${totalIntake.toInt()}ml / ${goal.toInt()}ml)\n$status\nChuỗi liên tiếp: $daysStreak ngày 🔥',
         payload: 'daily_summary',
       );
       print('✅ Đã gửi thống kê hàng ngày');

@@ -6,7 +6,7 @@ import '../providers/user_provider.dart';
 import '../models/weight_model.dart';
 import '../widgets/chart_widget.dart';
 import 'package:google_fonts/google_fonts.dart';
-
+import '../services/notification_service.dart';
 class WeightScreen extends StatefulWidget {
   const WeightScreen({super.key});
 
@@ -30,16 +30,22 @@ class _WeightScreenState extends State<WeightScreen>
 
     _staggerAnimations = List.generate(
       6,
-      (index) => Tween<double>(begin: 0, end: 1).animate(
-        CurvedAnimation(
-          parent: _animationController,
-          curve: Interval(
-            index * 0.15,
-            (index * 0.15) + 0.6,
-            curve: Curves.easeOut,
+          (index) {
+        final double begin = index * 0.15;
+        // Tính toán thời gian kết thúc, nhưng giới hạn nó trong khoảng 0.0 và 1.0
+        final double end = (begin + 0.6).clamp(0.0, 1.0);
+
+        return Tween<double>(begin: 0, end: 1).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Interval(
+              begin,
+              end, // Sử dụng giá trị 'end' đã được giới hạn
+              curve: Curves.easeOut,
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
 
     _animationController.forward();
@@ -148,6 +154,65 @@ class _WeightScreenState extends State<WeightScreen>
           ),
         ),
         actions: [
+          IconButton(
+            icon: Icon(
+              weightProvider.isReminderEnabled
+                  ? Icons.notifications_active // Icon khi đã bật
+                  : Icons.notifications_off_outlined, // Icon khi đã tắt
+              color: Colors.white,
+            ),
+            tooltip: weightProvider.isReminderEnabled
+                ? 'Tắt nhắc nhở hàng tuần'
+                : 'Bật nhắc nhở hàng tuần',
+            onPressed: () {
+              // 1. Gọi provider để Bật/Tắt
+              final weightProvider = context.read<WeightProvider>();
+              weightProvider.toggleWeeklyReminder(
+                currentWeight,
+                targetWeight,
+              );
+
+              final isEnabled = weightProvider.isReminderEnabled;
+
+              // 2. Vẫn hiển thị SnackBar (bên trong) để xác nhận
+              _showNotificationSnackBar(isEnabled, currentWeight, targetWeight);
+
+              // 3. THÊM: Gửi 1 thông báo tức thì (bên ngoài)
+
+              // Tạo tiêu đề và nội dung cho thông báo
+              String title = '';
+              String body = '';
+
+              if (isEnabled) {
+                title = '✅ Đã bật nhắc nhở cân nặng';
+                // Tạo nội dung body giống như SnackBar
+                if (currentWeight > 0 && targetWeight > 0) {
+                  double diff = targetWeight - currentWeight;
+                  if (diff.abs() < 0.1) {
+                    body = 'Hiện tại: ${currentWeight.toStringAsFixed(1)}kg. Bạn đã đạt mục tiêu!';
+                  } else if (diff > 0) {
+                    body = 'Hiện tại: ${currentWeight.toStringAsFixed(1)}kg. Cần tăng ${diff.toStringAsFixed(1)}kg.';
+                  } else {
+                    body = 'Hiện tại: ${currentWeight.toStringAsFixed(1)}kg. Cần giảm ${diff.abs().toStringAsFixed(1)}kg.';
+                  }
+                } else {
+                  body = 'Lịch hẹn hàng tuần đã được bật.';
+                }
+              } else {
+                title = '❌ Đã tắt nhắc nhở cân nặng';
+                body = 'Bạn sẽ không nhận được thông báo hàng tuần nữa.';
+              }
+
+              // Gọi service để đẩy thông báo ra ngoài
+              NotificationService().showInstantNotification(
+                title: title,
+                body: body,
+                channelId: 'weight_reminders_channel', // Phải khớp với channel bạn đã tạo
+                channelName: 'Weight Reminder',
+                color: isEnabled ? Colors.orange.shade600 : Colors.red.shade600,
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.history, color: Colors.white),
             tooltip: 'Lịch sử cân nặng',
@@ -757,5 +822,60 @@ class _WeightScreenState extends State<WeightScreen>
         ],
       ),
     );
+  }
+  //thông báo
+  void _showNotificationSnackBar(bool isEnabled, double currentWeight, double targetWeight) {
+    if (!mounted) return;
+
+    // 1. Tạo nội dung trạng thái
+    String statusText = isEnabled
+        ? 'Đã bật nhắc nhở hàng tuần'
+        : 'Đã tắt nhắc nhở hàng tuần';
+
+    // 2. Tạo nội dung cân nặng
+    String weightText = '';
+    if (currentWeight > 0 && targetWeight > 0) {
+      double diff = targetWeight - currentWeight;
+      if (diff.abs() < 0.1) {
+        weightText = 'Hiện tại: ${currentWeight.toStringAsFixed(1)}kg. Bạn đã đạt mục tiêu! 🎉';
+      } else if (diff > 0) {
+        // Cần tăng
+        weightText = 'Hiện tại: ${currentWeight.toStringAsFixed(1)}kg. Cần tăng ${diff.toStringAsFixed(1)}kg.';
+      } else {
+        // Cần giảm
+        weightText = 'Hiện tại: ${currentWeight.toStringAsFixed(1)}kg. Cần giảm ${diff.abs().toStringAsFixed(1)}kg.';
+      }
+    } else {
+      weightText = 'Cập nhật cân nặng và mục tiêu để xem chi tiết.';
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Column( // <-- Dùng Column
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row( // Hàng đầu tiên: Trạng thái Bật/Tắt
+            children: [
+              Icon(isEnabled ? Icons.check_circle : Icons.cancel, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                statusText,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              )
+            ],
+          ),
+          const SizedBox(height: 8), // Khoảng cách
+          Text( // Hàng thứ hai: Thông tin cân nặng
+            weightText,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+          ),
+        ],
+      ),
+      backgroundColor: isEnabled ? Colors.green.shade600 : Colors.red.shade600,
+      duration: const Duration(milliseconds: 3500), // Tăng thời gian hiển thị
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    ));
   }
 }

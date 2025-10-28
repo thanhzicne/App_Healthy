@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../models/weight_model.dart';
 import '../utils/helpers.dart';
-
+import '../services/weight_notification_handler.dart';
 class WeightProvider with ChangeNotifier {
   List<WeightModel> _weights = [];
   WeightModel _currentWeight = WeightModel();
@@ -13,7 +13,11 @@ class WeightProvider with ChangeNotifier {
 
   // <<< THÊM MỚI: Cờ để xác định mục tiêu có phải do người dùng tự đặt không >>>
   bool _isTargetManuallySet = false;
-
+  // <-- THÊM CÁC DÒNG SAU -->
+  final _notificationHandler = WeightNotificationHandler();
+  bool _isReminderEnabled = false;
+  bool get isReminderEnabled => _isReminderEnabled;
+  //
   List<WeightModel> get weights => _weights;
   WeightModel get weight => _currentWeight;
   double get targetWeight => _targetWeight;
@@ -40,7 +44,7 @@ class WeightProvider with ChangeNotifier {
 
         // <<< THAY ĐỔI: Đọc cờ từ Firestore, nếu không có thì mặc định là false >>>
         _isTargetManuallySet = data['isTargetManuallySet'] ?? false;
-
+        _isReminderEnabled = data['isReminderEnabled'] ?? false;
         notifyListeners();
       }
     } catch (e) {
@@ -130,5 +134,59 @@ class WeightProvider with ChangeNotifier {
         print('Error updating ideal target after height change: $e');
       }
     }
+  }
+  Future<void> toggleWeeklyReminder(double currentWeight, double targetWeight) async {
+    if (FirebaseAuth.instance.currentUser == null) return;
+    String uid = FirebaseAuth.instance.currentUser!.uid;
+
+    _isReminderEnabled = !_isReminderEnabled; // Đảo trạng thái
+
+    if (_isReminderEnabled) {
+      // Bật thông báo
+      await _notificationHandler.scheduleWeeklyReminder(
+        currentWeight: currentWeight,
+        targetWeight: targetWeight,
+      );
+    } else {
+      // Tắt thông báo
+      await _notificationHandler.cancelWeeklyReminder();
+    }
+
+    // Lưu trạng thái vào Firestore
+    try {
+      await FirebaseFirestore.instance.collection('weights').doc(uid).set(
+        {
+          'isReminderEnabled': _isReminderEnabled,
+        },
+        SetOptions(merge: true),
+      );
+    } catch (e) {
+      print('Lỗi lưu trạng thái nhắc nhở cân nặng: $e');
+    }
+    notifyListeners();
+  }
+  //xoá dữ liệu từ nút cà đặt tỏng profile
+  Future<void> clearAllData() async {
+    if (FirebaseAuth.instance.currentUser == null) return;
+    String uid = FirebaseAuth.instance.currentUser!.uid;
+
+    // Reset local data
+    _weights = [];
+    _currentWeight = WeightModel();
+    _targetWeight = 0.0;
+    _isTargetManuallySet = false;
+
+    try {
+      // Xóa document trên Firestore
+      await FirebaseFirestore.instance
+          .collection('weights')
+          .doc(uid)
+          .delete();
+      print('🗑️ Đã xóa dữ liệu cân nặng trên Firestore');
+    } catch (e) {
+      print('❌ Lỗi khi xóa dữ liệu cân nặng: $e');
+    }
+
+    notifyListeners();
   }
 }

@@ -114,7 +114,6 @@ class _LoginScreenState extends State<LoginScreen>
         password: _passwordController.text.trim(),
       );
 
-      // Kiểm tra xem widget còn mounted trước khi điều hướng
       if (!mounted) return;
 
       // Điều hướng tới Home screen và xóa toàn bộ stack navigation
@@ -169,6 +168,7 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true, // Quan trọng: cho phép resize khi bàn phím hiện
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -184,7 +184,7 @@ class _LoginScreenState extends State<LoginScreen>
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
               child: FadeTransition(
                 opacity: _fadeAnimation,
                 child: SlideTransition(
@@ -195,7 +195,7 @@ class _LoginScreenState extends State<LoginScreen>
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.all(32.0),
+                      padding: const EdgeInsets.all(24.0),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -207,7 +207,7 @@ class _LoginScreenState extends State<LoginScreen>
                               return Transform.scale(
                                 scale: value,
                                 child: Container(
-                                  padding: const EdgeInsets.all(20),
+                                  padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     gradient: LinearGradient(
@@ -226,33 +226,33 @@ class _LoginScreenState extends State<LoginScreen>
                                   ),
                                   child: Image.asset(
                                     'assets/images/healthy.png',
-                                    width: 80,
-                                    height: 80,
+                                    width: 60,
+                                    height: 60,
                                   ),
                                 ),
                               );
                             },
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 20),
 
                           // Title
                           Text(
                             'Chào mừng trở lại!',
                             style: TextStyle(
-                              fontSize: 28,
+                              fontSize: 24,
                               fontWeight: FontWeight.bold,
                               color: Colors.grey.shade800,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           Text(
                             'Đăng nhập để tiếp tục',
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 13,
                               color: Colors.grey.shade600,
                             ),
                           ),
-                          const SizedBox(height: 32),
+                          const SizedBox(height: 24),
 
                           // Email Field
                           TextFormField(
@@ -287,12 +287,16 @@ class _LoginScreenState extends State<LoginScreen>
                               ),
                               filled: true,
                               fillColor: Colors.grey.shade50,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
                             ),
                             onChanged: (value) {
                               _updateFieldError('email', _validateEmail(value));
                             },
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 14),
 
                           // Password Field
                           TextFormField(
@@ -314,7 +318,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                                 onPressed: () {
                                   setState(
-                                    () => _obscurePassword = !_obscurePassword,
+                                        () => _obscurePassword = !_obscurePassword,
                                   );
                                 },
                               ),
@@ -340,6 +344,10 @@ class _LoginScreenState extends State<LoginScreen>
                               ),
                               filled: true,
                               fillColor: Colors.grey.shade50,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
                             ),
                             onChanged: (value) {
                               _updateFieldError(
@@ -349,12 +357,12 @@ class _LoginScreenState extends State<LoginScreen>
                             },
                           ),
 
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 20),
 
                           // Login Button
                           SizedBox(
                             width: double.infinity,
-                            height: 50,
+                            height: 48,
                             child: ElevatedButton(
                               onPressed: _isLoading ? null : _login,
                               style: ElevatedButton.styleFrom(
@@ -367,32 +375,32 @@ class _LoginScreenState extends State<LoginScreen>
                               ),
                               child: _isLoading
                                   ? const SizedBox(
-                                      height: 24,
-                                      width: 24,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2.5,
-                                      ),
-                                    )
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
+                              )
                                   : const Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          'Đăng nhập',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        SizedBox(width: 8),
-                                        Icon(Icons.arrow_forward, size: 20),
-                                      ],
+                                mainAxisAlignment:
+                                MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Đăng nhập',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
                                     ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Icon(Icons.arrow_forward, size: 20),
+                                ],
+                              ),
                             ),
                           ),
 
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 14),
 
                           // Divider
                           Row(
@@ -402,11 +410,14 @@ class _LoginScreenState extends State<LoginScreen>
                               ),
                               Padding(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
+                                  horizontal: 12,
                                 ),
                                 child: Text(
                                   'hoặc',
-                                  style: TextStyle(color: Colors.grey.shade600),
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
                               Expanded(
@@ -415,7 +426,7 @@ class _LoginScreenState extends State<LoginScreen>
                             ],
                           ),
 
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 14),
 
                           // Register Button
                           TextButton(
@@ -425,22 +436,22 @@ class _LoginScreenState extends State<LoginScreen>
                                 PageRouteBuilder(
                                   pageBuilder:
                                       (
-                                        context,
-                                        animation,
-                                        secondaryAnimation,
+                                      context,
+                                      animation,
+                                      secondaryAnimation,
                                       ) => const RegisterScreen(),
                                   transitionsBuilder:
                                       (
-                                        context,
-                                        animation,
-                                        secondaryAnimation,
-                                        child,
+                                      context,
+                                      animation,
+                                      secondaryAnimation,
+                                      child,
                                       ) {
-                                        return FadeTransition(
-                                          opacity: animation,
-                                          child: child,
-                                        );
-                                      },
+                                    return FadeTransition(
+                                      opacity: animation,
+                                      child: child,
+                                    );
+                                  },
                                 ),
                               );
                             },
@@ -452,19 +463,23 @@ class _LoginScreenState extends State<LoginScreen>
                               children: [
                                 const Text(
                                   'Chưa có tài khoản? ',
-                                  style: TextStyle(color: Colors.grey),
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 13,
+                                  ),
                                 ),
                                 Text(
                                   'Đăng ký ngay',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: Colors.blue.shade600,
+                                    fontSize: 13,
                                   ),
                                 ),
                                 const SizedBox(width: 4),
                                 Icon(
                                   Icons.person_add_outlined,
-                                  size: 18,
+                                  size: 16,
                                   color: Colors.blue.shade600,
                                 ),
                               ],
