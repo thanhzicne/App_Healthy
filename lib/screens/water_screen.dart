@@ -411,35 +411,46 @@ class _WaterScreenState extends State<WaterScreen>
           ),
         ],
       ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            color: Colors.white,
-            size: 24,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: GoogleFonts.poppins(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
               color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+              size: 20,
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+            const SizedBox(height: 4),
+            SizedBox(
+              width: 80,
+              child: Text(
+                title,
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -580,7 +591,7 @@ class _WaterScreenState extends State<WaterScreen>
                       ],
                     ),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
+                      horizontal: 10,
                       vertical: 8,
                     ),
                     child: Row(
@@ -591,7 +602,7 @@ class _WaterScreenState extends State<WaterScreen>
                           color: Colors.white,
                           size: 18,
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 4),
                         Text(
                           dailyStatus,
                           style: GoogleFonts.poppins(
