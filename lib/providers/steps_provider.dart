@@ -372,4 +372,21 @@ class StepsProvider with ChangeNotifier {
     }
     notifyListeners();
   }
+  void resetStateOnLogout() {
+    // 1. Reset state local
+    // (Chúng ta giữ lại goal của người dùng cũ, nó sẽ được load lại)
+    _steps = StepsModel(lastUpdated: Timestamp.now(), goal: _steps.goal);
+    _hourlySteps.clear();
+    _dailySteps.clear();
+    _initialSteps = 0;
+    _lastSavedSteps = 0;
+
+    // 2. Hủy subscription của Pedometer
+    _stepCountSubscription?.cancel();
+    _stepCountSubscription = null;
+
+    // KHÔNG GỌI BẤT KỲ HÀM .delete() NÀO
+    notifyListeners();
+    print('StepsProvider state reset (local only for logout).');
+  }
 }

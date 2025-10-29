@@ -270,4 +270,21 @@ class UserProvider with ChangeNotifier {
       }
     }
   }
+  void clearAllData() {
+    // Reset _user về trạng thái ban đầu
+    _user = UserModel(
+      name: 'User',
+      email: '',
+      gender: '',
+      age: 0,
+      height: 0,
+      avatarUrl: null,
+    );
+
+    // Thông báo cho các widget đang lắng nghe về sự thay đổi này
+    notifyListeners();
+    if (kDebugMode) {
+      print('UserProvider state cleared.');
+    }
+  }
 }

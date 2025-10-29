@@ -644,15 +644,28 @@ class _WeightScreenState extends State<WeightScreen>
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
-            child: TextButton.icon(
-              icon: const Icon(Icons.lightbulb_outline, size: 16),
-              label: const Text('Áp dụng mục tiêu lý tưởng'),
+            child: TextButton(
               onPressed: () {
                 targetController.text = idealWeight.toStringAsFixed(1);
               },
               style: TextButton.styleFrom(
                 foregroundColor: Colors.blue.shade700,
                 alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.lightbulb_outline, size: 16),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'Áp dụng mục tiêu lý tưởng',
+                      textAlign: TextAlign.center,
+                      softWrap: true,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -667,40 +680,48 @@ class _WeightScreenState extends State<WeightScreen>
         title: Row(children: [
           Icon(Icons.flag_outlined, color: Colors.blue.shade600),
           const SizedBox(width: 8),
-          const Text('Đặt mục tiêu cân nặng')
+          const Flexible(
+            child: Text('Mục tiêu cân nặng', overflow: TextOverflow.ellipsis),
+          )
         ]),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: targetController,
-                decoration: InputDecoration(
-                  labelText: 'Mục tiêu (kg)',
-                  prefixIcon:
-                      Icon(Icons.scale_outlined, color: Colors.blue.shade600),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                  focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide:
-                          BorderSide(color: Colors.blue.shade600, width: 2)),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+        content: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.5,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: targetController,
+                  decoration: InputDecoration(
+                    labelText: 'Mục tiêu (kg)',
+                    prefixIcon:
+                    Icon(Icons.scale_outlined, color: Colors.blue.shade600),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide:
+                        BorderSide(color: Colors.blue.shade600, width: 2)),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+                  autofocus: true,
                 ),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                autofocus: true,
-              ),
-              suggestionWidget,
-            ],
+                suggestionWidget,
+              ],
+            ),
           ),
         ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
               child:
-                  Text('Hủy', style: TextStyle(color: Colors.grey.shade600))),
+              Text('Hủy', style: TextStyle(color: Colors.grey.shade600))),
           ElevatedButton(
             onPressed: () {
               final newTarget = double.tryParse(targetController.text) ??
@@ -713,7 +734,7 @@ class _WeightScreenState extends State<WeightScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue.shade600,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10)),
             ),

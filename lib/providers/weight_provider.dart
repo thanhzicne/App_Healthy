@@ -189,4 +189,16 @@ class WeightProvider with ChangeNotifier {
 
     notifyListeners();
   }
+  void resetStateOnLogout() {
+    // Đặt lại về trạng thái ban đầu
+    _currentWeight = WeightModel();
+    _targetWeight = 0.0;
+    _weights.clear();
+    _isReminderEnabled = false;
+    _isTargetManuallySet = false;
+
+
+    notifyListeners();
+    print('WeightProvider state reset (local only for logout).');
+  }
 }

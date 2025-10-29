@@ -1,6 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'register_screen.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
+import '../providers/water_provider.dart';
+import '../providers/steps_provider.dart';
+import '../providers/weight_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -109,6 +114,7 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _isLoading = true);
 
     try {
+      // 1. Đăng nhập
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
@@ -116,8 +122,19 @@ class _LoginScreenState extends State<LoginScreen>
 
       if (!mounted) return;
 
-      // Điều hướng tới Home screen và xóa toàn bộ stack navigation
+      // --- 🔽🔽 BẮT ĐẦU PHẦN SỬA LỖI 🔽🔽 ---
+      // 2. NGAY LẬP TỨC TẢI DỮ LIỆU CỦA NGƯỜI DÙNG MỚI
+      // (Không cần 'await', hãy để chúng chạy trong nền)
+      print('Login successful. Loading user data...'); // Thêm log để kiểm tra
+      context.read<UserProvider>().loadUser();
+      context.read<WaterProvider>().loadWater();
+      context.read<WeightProvider>().loadWeight();
+      context.read<StepsProvider>().loadData();
+      // --- 🔼🔼 KẾT THÚC PHẦN SỬA LỖI 🔼🔼 ---
+
+      // 3. Điều hướng tới Home screen
       Navigator.pushReplacementNamed(context, '/home');
+
     } catch (e) {
       if (!mounted) return;
 

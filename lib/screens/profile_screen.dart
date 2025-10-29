@@ -11,7 +11,9 @@ import '../providers/user_provider.dart';
 import '../providers/weight_provider.dart';
 import '../models/user_model.dart';
 import '../screens/settings_screen.dart';
-
+import '../providers/water_provider.dart';
+import '../providers/steps_provider.dart';
+import '../providers/weight_provider.dart';
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -706,14 +708,24 @@ class _ProfileScreenState extends State<ProfileScreen>
 
               if (confirm == true) {
                 try {
-                  // Sign out from Firebase
+                  // --- BƯỚC 1: DỌN DẸP STATE (PHIÊN BẢN ĐÚNG) ---
+
+                  // 1. UserProvider (an toàn, chỉ reset local)
+                  context.read<UserProvider>().clearAllData();
+
+                  // 2. Các provider dữ liệu (gọi hàm reset an toàn)
+                  context.read<WaterProvider>().resetStateOnLogout();
+                  context.read<WeightProvider>().resetStateOnLogout();
+                  context.read<StepsProvider>().resetStateOnLogout();
+
+                  // --- BƯỚC 2: ĐĂNG XUẤT KHỎI FIREBASE ---
                   await FirebaseAuth.instance.signOut();
 
                   if (!mounted) return;
 
-                  // Navigate to login screen and remove all previous routes
+                  // --- BƯỚC 3: ĐIỀU HƯỚNG VỀ LOGIN ---
                   Navigator.of(context).pushNamedAndRemoveUntil(
-                    '/login', // Đảm bảo route này đã được định nghĩa trong MaterialApp
+                    '/login',
                         (route) => false,
                   );
                 } catch (e) {

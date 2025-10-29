@@ -334,4 +334,19 @@ class WaterProvider with ChangeNotifier {
 
     notifyListeners();
   }
+  void resetStateOnLogout() {
+    // Reset local data
+    _water = WaterIntakeModel();
+    // Tính toán lại mục tiêu default nếu có thông tin user
+    if (_user != null) {
+      _water.mlGoal = _calculateWaterGoal(_user!);
+      _water.totalCups = (_water.mlGoal / 250).ceil();
+    } else {
+      // Fallback nếu _user cũng bị reset
+      _water = WaterIntakeModel();
+    }
+
+    notifyListeners();
+    print('WaterProvider state reset (local only for logout).');
+  }
 }
