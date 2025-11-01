@@ -2,6 +2,7 @@
 
 **app_healthcare** là ứng dụng Flutter giúp người dùng theo dõi và quản lý các chỉ số sức khỏe hàng ngày như bước đi, lượng nước uống, cân nặng và thông tin cá nhân.  
 Ứng dụng phù hợp cho người dùng muốn duy trì lối sống lành mạnh và kiểm soát thể trạng của mình một cách khoa học.
+Let's me see
 
 ---
 
