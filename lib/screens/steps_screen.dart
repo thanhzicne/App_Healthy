@@ -9,6 +9,8 @@ import '../screens/steps_history_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/notification_service.dart';
 
+import 'package:permission_handler/permission_handler.dart';
+
 class StepsScreen extends StatelessWidget {
   const StepsScreen({super.key});
 
@@ -71,116 +73,192 @@ class StepsScreen extends StatelessWidget {
               ),
             ],
           ),
-          body: SingleChildScrollView(
+          body: _buildBody(context, stepsProvider),
+        );
+      },
+    );
+  }
+
+  Widget _buildBody(BuildContext context, StepsProvider stepsProvider) {
+    // 1. Kiểm tra quyền
+    if (!stepsProvider.hasPermission) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.directions_walk,
+                  size: 80, color: Colors.grey.shade400),
+              const SizedBox(height: 16),
+              const Text(
+                'Cần quyền truy cập',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Ứng dụng cần quyền truy cập cảm biến chuyển động để đếm bước chân của bạn.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  await openAppSettings();
+                  // Sau khi người dùng từ cài đặt quay lại, thử yêu cầu lại
+                  stepsProvider.retryPermission();
+                },
+                icon: const Icon(Icons.settings),
+                label: const Text('Đi tới Cài đặt'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple.shade400,
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 2. Kiểm tra cảm biến
+    if (!stepsProvider.isSensorAvailable) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.warning_amber_rounded,
+                  size: 80, color: Colors.orange.shade400),
+              const SizedBox(height: 16),
+              const Text(
+                'Thiết bị không hỗ trợ',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Thiết bị của bạn không hỗ trợ chức năng đếm bước chân (không có cảm biến Pedometer).',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 3. Hiển thị giao diện bình thường
+    final stepsData = stepsProvider.steps;
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Goal Card Header
+          Container(
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFF6A1B9A),
+                  Color(0xFF1976D2),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF6A1B9A).withOpacity(0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(24),
             child: Column(
               children: [
-                // Goal Card Header
-                Container(
-                  margin: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        const Color(0xFF6A1B9A),
-                        const Color(0xFF1976D2),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+                const Text(
+                  'Mục tiêu hôm nay',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '${stepsData.steps} / ${stepsData.goal}',
+                  style: const TextStyle(
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'bước',
+                  style: TextStyle(color: Colors.white70, fontSize: 16),
+                ),
+                const SizedBox(height: 16),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: LinearProgressIndicator(
+                    value: (stepsData.steps / stepsData.goal).clamp(0, 1),
+                    minHeight: 10,
+                    backgroundColor: Colors.white.withOpacity(0.2),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Colors.greenAccent.shade400,
                     ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF6A1B9A).withOpacity(0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      Text(
-                        'Mục tiêu hôm nay',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        '${stepsData.steps} / ${stepsData.goal}',
-                        style: const TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'bước',
-                        style: TextStyle(color: Colors.white70, fontSize: 16),
-                      ),
-                      const SizedBox(height: 16),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: LinearProgressIndicator(
-                          value: (stepsData.steps / stepsData.goal).clamp(0, 1),
-                          minHeight: 10,
-                          backgroundColor: Colors.white.withOpacity(0.2),
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.greenAccent.shade400,
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
-
-                // Hiển thị Calo và Quãng đường
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Row(
-                    children: [
-                      _buildInfoCard(
-                        icon: Icons.local_fire_department_rounded,
-                        color: Colors.orange,
-                        title: 'Calo đốt cháy',
-                        value: '${stepsData.calories.toStringAsFixed(0)} kcal',
-                      ),
-                      const SizedBox(width: 16),
-                      _buildInfoCard(
-                        icon: Icons.map_outlined,
-                        color: Colors.blue,
-                        title: 'Quãng đường',
-                        value: '${stepsData.distance.toStringAsFixed(2)} km',
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Biểu đồ hoạt động trong ngày
-                _buildChartContainer(
-                  title: 'Hoạt động trong ngày',
-                  chart: TodayChart(data: stepsProvider.hourlySteps),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Biểu đồ tổng kết 7 ngày
-                _buildChartContainer(
-                  title: 'Tổng kết 7 ngày qua',
-                  chart: WeeklyChart(data: stepsProvider.dailySteps),
-                ),
-
-                const SizedBox(height: 24),
-                const SizedBox(height: 80),
               ],
             ),
           ),
-        );
-      },
+
+          // Hiển thị Calo và Quãng đường
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              children: [
+                _buildInfoCard(
+                  icon: Icons.local_fire_department_rounded,
+                  color: Colors.orange,
+                  title: 'Calo đốt cháy',
+                  value: '${stepsData.calories.toStringAsFixed(0)} kcal',
+                ),
+                const SizedBox(width: 16),
+                _buildInfoCard(
+                  icon: Icons.map_outlined,
+                  color: Colors.blue,
+                  title: 'Quãng đường',
+                  value: '${stepsData.distance.toStringAsFixed(2)} km',
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Biểu đồ hoạt động trong ngày
+          _buildChartContainer(
+            title: 'Hoạt động trong ngày',
+            chart: TodayChart(data: stepsProvider.hourlySteps),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Biểu đồ tổng kết 7 ngày
+          _buildChartContainer(
+            title: 'Tổng kết 7 ngày qua',
+            chart: WeeklyChart(data: stepsProvider.dailySteps),
+          ),
+
+          const SizedBox(height: 24),
+          const SizedBox(height: 80),
+        ],
+      ),
     );
   }
 

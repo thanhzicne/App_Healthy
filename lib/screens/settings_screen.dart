@@ -3,8 +3,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/water_provider.dart';
 import '../providers/weight_provider.dart';
+import '../providers/user_provider.dart';
 import '../providers/steps_provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/notification_service.dart';
+import '../services/data_service.dart';
+import '../services/localization_service.dart';
+import '../main.dart';
+
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -15,8 +21,6 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _waterNotifications = true;
   bool _stepsNotifications = true;
-  bool _weightNotifications = true;
-  bool _darkMode = false;
   String _language = 'Tiếng Việt';
 
   @override
@@ -24,7 +28,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Cài đặt',
+          context.tr('settings'),
           style: GoogleFonts.poppins(
             fontSize: 22,
             fontWeight: FontWeight.w700,
@@ -53,7 +57,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // 🔔 PHẦN THÔNG BÁO
           _buildSectionHeader(
             icon: Icons.notifications_active,
-            title: 'Thông báo',
+            title: context.tr('notifications'),
             color: Colors.orange,
           ),
           const SizedBox(height: 12),
@@ -64,7 +68,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // 🎯 PHẦN MỤC TIÊU
           _buildSectionHeader(
             icon: Icons.flag,
-            title: 'Mục tiêu',
+            title: context.tr('goals'),
             color: Colors.green,
           ),
           const SizedBox(height: 12),
@@ -75,7 +79,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // 🎨 PHẦN GIAO DIỆN
           _buildSectionHeader(
             icon: Icons.palette,
-            title: 'Giao diện',
+            title: context.tr('appearance'),
             color: Colors.purple,
           ),
           const SizedBox(height: 12),
@@ -86,7 +90,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // 💾 PHẦN DỮ LIỆU
           _buildSectionHeader(
             icon: Icons.storage,
-            title: 'Dữ liệu',
+            title: context.tr('data'),
             color: Colors.red,
           ),
           const SizedBox(height: 12),
@@ -97,7 +101,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ℹ️ PHẦN THÔNG TIN
           _buildSectionHeader(
             icon: Icons.info_outline,
-            title: 'Thông tin',
+            title: context.tr('info'),
             color: Colors.blue,
           ),
           const SizedBox(height: 12),
@@ -120,9 +124,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [color.shade300, color.shade500],
-            ),
+            gradient: LinearGradient(colors: [color.shade300, color.shade500]),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -143,14 +145,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // 🔔 CARD THÔNG BÁO
   Widget _buildNotificationCard() {
     final weightProvider = context.watch<WeightProvider>();
-    final stepsProvider = context.watch<StepsProvider>();
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -159,17 +160,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         children: [
           _buildSwitchTile(
-            title: 'Nhắc nhở uống nước',
-            subtitle: 'Nhận thông báo định kỳ',
+            title: context.tr('water_reminder'),
+            subtitle: context.tr('water_subtitle'),
             value: _waterNotifications,
             onChanged: (value) {
               setState(() => _waterNotifications = value);
               if (value) {
                 context.read<WaterProvider>().initializeDailyReminders();
-                _showSnackBar('✅ Đã bật nhắc nhở uống nước');
+                _showSnackBar('✅ ${context.tr('water_reminder')} ON');
               } else {
                 context.read<WaterProvider>().cancelAllNotifications();
-                _showSnackBar('❌ Đã tắt nhắc nhở uống nước');
+                _showSnackBar('❌ ${context.tr('water_reminder')} OFF');
               }
             },
             icon: Icons.water_drop,
@@ -177,46 +178,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const Divider(height: 1),
           _buildSwitchTile(
-            title: 'Thông báo bước chân',
-            subtitle: 'Cập nhật tiến độ bước chân',
-            value: _stepsNotifications, // (Tạm thời vẫn dùng biến local, xem ghi chú)
+            title: context.tr('steps_notification'),
+            subtitle: context.tr('steps_subtitle'),
+            value:
+                _stepsNotifications, // (Tạm thời vẫn dùng biến local, xem ghi chú)
             onChanged: (value) {
               setState(() => _stepsNotifications = value);
               final notificationService = NotificationService(); // <-- Thêm
               if (value) {
                 // Hẹn lịch nhắc nhở (ví dụ)
                 notificationService.scheduleDailyStepsReminders(); // <-- Thêm
-                _showSnackBar('✅ Đã bật thông báo bước chân');
+                _showSnackBar('✅ ${context.tr('steps_notification')} ON');
               } else {
                 // Hủy lịch nhắc nhở
                 notificationService.cancelStepsReminders(); // <-- Thêm
-                _showSnackBar('❌ Đã tắt thông báo bước chân');
+                _showSnackBar('❌ ${context.tr('steps_notification')} OFF');
               }
             },
             icon: Icons.directions_walk,
             color: Colors.purple,
           ),
           const Divider(height: 1),
-
           _buildSwitchTile(
-            title: 'Nhắc nhở cân nặng',
-            subtitle: 'Nhắc đo cân hàng tuần',
+            title: context.tr('weight_reminder'),
+            subtitle: context.tr('weight_subtitle'),
             value: weightProvider.isReminderEnabled, // <-- Sửa: Dùng provider
             onChanged: (value) {
               // Lấy cân nặng và mục tiêu (cần cho hàm toggle)
-              final currentWeight = context.read<WeightProvider>().weight.currentWeight;
+              final currentWeight =
+                  context.read<WeightProvider>().weight.currentWeight;
               final targetWeight = context.read<WeightProvider>().targetWeight;
 
               // Gọi hàm toggle từ provider
               context.read<WeightProvider>().toggleWeeklyReminder(
-                  currentWeight,
-                  targetWeight
-              );
+                    currentWeight,
+                    targetWeight,
+                  );
 
               // SnackBar sẽ được hiển thị từ weight_screen,
               // nhưng nếu muốn, bạn vẫn có thể hiện 1 SnackBar ở đây
               _showSnackBar(
-                  value ? '✅ Đã bật nhắc nhở cân nặng' : '❌ Đã tắt nhắc nhở cân nặng'
+                value
+                    ? '✅ ${context.tr('weight_reminder')} ON'
+                    : '❌ ${context.tr('weight_reminder')} OFF',
               );
             },
             icon: Icons.monitor_weight,
@@ -231,11 +235,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildGoalsCard() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -244,24 +248,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         children: [
           _buildOptionTile(
-            title: 'Mục tiêu nước',
-            subtitle: 'Đặt lượng nước cần uống',
+            title: context.tr('water_goal'),
+            subtitle: context.tr('water_goal_subtitle'),
             icon: Icons.local_drink,
             color: Colors.blue,
             onTap: () => _showWaterGoalDialog(),
           ),
           const Divider(height: 1),
           _buildOptionTile(
-            title: 'Mục tiêu bước chân',
-            subtitle: 'Số bước mỗi ngày',
+            title: context.tr('steps_goal'),
+            subtitle: context.tr('steps_goal_subtitle'),
             icon: Icons.directions_run,
             color: Colors.purple,
             onTap: () => _showStepsGoalDialog(),
           ),
           const Divider(height: 1),
           _buildOptionTile(
-            title: 'Mục tiêu cân nặng',
-            subtitle: 'Cân nặng mục tiêu',
+            title: context.tr('weight_goal'),
+            subtitle: context.tr('weight_goal_subtitle'),
             icon: Icons.flag,
             color: Colors.orange,
             onTap: () => _showWeightGoalDialog(),
@@ -273,13 +277,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // 🎨 CARD GIAO DIỆN
   Widget _buildAppearanceCard() {
+    final themeProvider = context.watch<ThemeProvider>();
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -288,19 +293,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         children: [
           _buildSwitchTile(
-            title: 'Chế độ tối',
-            subtitle: 'Giao diện tối dễ nhìn',
-            value: _darkMode,
+            title: context.tr('dark_mode'),
+            subtitle: context.tr('dark_mode_subtitle'),
+            value: themeProvider.isDarkMode,
             onChanged: (value) {
-              setState(() => _darkMode = value);
-              _showSnackBar('🌙 Chức năng đang phát triển');
+              themeProvider.toggleTheme();
+              _showSnackBar(
+                value
+                    ? '🌙 ${context.tr('dark_mode')} ON'
+                    : '☀️ ${context.tr('dark_mode')} OFF',
+              );
             },
             icon: Icons.dark_mode,
             color: Colors.indigo,
           ),
           const Divider(height: 1),
           _buildOptionTile(
-            title: 'Ngôn ngữ',
+            title: context.tr('language'),
             subtitle: _language,
             icon: Icons.language,
             color: Colors.teal,
@@ -315,11 +324,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildDataCard() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -328,16 +337,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         children: [
           _buildOptionTile(
-            title: 'Xuất dữ liệu',
-            subtitle: 'Sao lưu dữ liệu của bạn',
+            title: context.tr('export_data'),
+            subtitle: context.tr('export_subtitle'),
             icon: Icons.download,
             color: Colors.green,
             onTap: () => _showExportDialog(),
           ),
           const Divider(height: 1),
           _buildOptionTile(
-            title: 'Xóa tất cả dữ liệu',
-            subtitle: 'Không thể hoàn tác',
+            title: context.tr('delete_data'),
+            subtitle: context.tr('delete_subtitle'),
             icon: Icons.delete_forever,
             color: Colors.red,
             onTap: () => _showDeleteConfirmation(),
@@ -351,11 +360,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildInfoCard() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -364,23 +373,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         children: [
           _buildOptionTile(
-            title: 'Giới thiệu ứng dụng',
-            subtitle: 'Về HealthTracker',
+            title: context.tr('about_app'),
+            subtitle: context.tr('about_subtitle'),
             icon: Icons.info,
             color: Colors.blue,
             onTap: () => _showAboutDialog(),
           ),
           const Divider(height: 1),
           _buildOptionTile(
-            title: 'Điều khoản sử dụng',
-            subtitle: 'Chính sách và điều khoản',
+            title: context.tr('terms'),
+            subtitle: context.tr('terms_subtitle'),
             icon: Icons.description,
             color: Colors.blueGrey,
             onTap: () => _showTermsDialog(),
           ),
           const Divider(height: 1),
           _buildOptionTile(
-            title: 'Phiên bản',
+            title: context.tr('version'),
             subtitle: 'v1.0.0',
             icon: Icons.code,
             color: Colors.grey,
@@ -398,37 +407,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required bool value,
     required Function(bool) onChanged,
     required IconData icon,
-  required MaterialColor color,
+    required MaterialColor color,
   }) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       leading: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, color: color, size: 24),
       ),
       title: Text(
         title,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-        ),
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
       ),
       subtitle: Text(
         subtitle,
-        style: TextStyle(
-          fontSize: 13,
-          color: Colors.grey.shade600,
-        ),
+        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
       ),
-      trailing: Switch(
-        value: value,
-        onChanged: onChanged,
-        activeColor: color,
-      ),
+      trailing: Switch(value: value, onChanged: onChanged, activeColor: color),
     );
   }
 
@@ -445,24 +444,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       leading: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, color: color, size: 24),
       ),
       title: Text(
         title,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-        ),
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
       ),
       subtitle: Text(
         subtitle,
-        style: TextStyle(
-          fontSize: 13,
-          color: Colors.grey.shade600,
-        ),
+        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
       ),
       trailing: onTap != null
           ? Icon(Icons.chevron_right, color: Colors.grey.shade400)
@@ -601,6 +594,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               groupValue: _language,
               onChanged: (value) {
                 setState(() => _language = value!);
+                context.read<ThemeProvider>().setLocale(
+                      const Locale('vi', 'VN'),
+                    );
                 Navigator.pop(context);
                 _showSnackBar('✅ Đã chuyển sang Tiếng Việt');
               },
@@ -611,6 +607,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               groupValue: _language,
               onChanged: (value) {
                 setState(() => _language = value!);
+                context.read<ThemeProvider>().setLocale(
+                      const Locale('en', 'US'),
+                    );
                 Navigator.pop(context);
                 _showSnackBar('✅ Changed to English');
               },
@@ -623,22 +622,92 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // 📤 DIALOG: Xuất dữ liệu
   void _showExportDialog() {
+    final userProvider = context.read<UserProvider>();
+    final waterProvider = context.read<WaterProvider>();
+    final stepsProvider = context.read<StepsProvider>();
+    final weightProvider = context.read<WeightProvider>();
+
+    final allData = DataService.gatherAllUserData(
+      userProvider: userProvider,
+      waterProvider: waterProvider,
+      stepsProvider: stepsProvider,
+      weightProvider: weightProvider,
+    );
+
+    final jsonString = DataService.exportToJSON(allData);
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Xuất dữ liệu'),
-        content: const Text('Xuất dữ liệu sang file JSON hoặc CSV?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.table_chart, color: Colors.green),
+              title: const Text('Xuất sang Excel (.xlsx)'),
+              onTap: () {
+                Navigator.pop(context);
+                DataService.exportToExcel(allData);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+              title: const Text('Xuất sang PDF (.pdf)'),
+              onTap: () {
+                Navigator.pop(context);
+                DataService.exportToPDF(allData);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.code, color: Colors.blue),
+              title: const Text('Xem định dạng JSON'),
+              onTap: () {
+                Navigator.pop(context);
+                _showJSONPreview(jsonString);
+              },
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
+            child: const Text('Đóng'),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _showSnackBar('📥 Đã xuất dữ liệu thành công');
-            },
-            child: const Text('Xuất'),
+        ],
+      ),
+    );
+  }
+
+  void _showJSONPreview(String jsonString) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Dữ liệu JSON'),
+        content: Container(
+          height: 300,
+          width: double.maxFinite,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: SingleChildScrollView(
+            child: Text(
+              jsonString,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 10,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Đóng'),
           ),
         ],
       ),
@@ -652,7 +721,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context) => AlertDialog(
         title: const Text('⚠️ Cảnh báo'),
         content: const Text(
-            'Bạn có chắc chắn muốn xóa TẤT CẢ dữ liệu?\n\nHành động này không thể hoàn tác!'
+          'Bạn có chắc chắn muốn xóa TẤT CẢ dữ liệu?\n\nHành động này không thể hoàn tác!',
         ),
         actions: [
           TextButton(
@@ -730,11 +799,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         content: const SingleChildScrollView(
           child: Text(
             '1. Quyền riêng tư\n'
-                'Chúng tôi cam kết bảo mật dữ liệu của bạn.\n\n'
-                '2. Sử dụng dữ liệu\n'
-                'Dữ liệu chỉ được sử dụng cho mục đích theo dõi sức khỏe.\n\n'
-                '3. Trách nhiệm\n'
-                'Ứng dụng chỉ mang tính chất tham khảo, không thay thế ý kiến bác sĩ.',
+            'Chúng tôi cam kết bảo mật dữ liệu của bạn.\n\n'
+            '2. Sử dụng dữ liệu\n'
+            'Dữ liệu chỉ được sử dụng cho mục đích theo dõi sức khỏe.\n\n'
+            '3. Trách nhiệm\n'
+            'Ứng dụng chỉ mang tính chất tham khảo, không thay thế ý kiến bác sĩ.',
           ),
         ),
         actions: [

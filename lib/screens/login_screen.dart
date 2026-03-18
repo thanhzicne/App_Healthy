@@ -23,7 +23,7 @@ class _LoginScreenState extends State<LoginScreen>
   bool _obscurePassword = true;
 
   // Map để lưu trữ lỗi của từng field
-  Map<String, String?> _fieldErrors = {'email': null, 'password': null};
+  Map<String, String?> _fieldErrors = {'identifier': null, 'password': null};
 
   late AnimationController _fadeController;
   late AnimationController _slideController;
@@ -51,8 +51,8 @@ class _LoginScreenState extends State<LoginScreen>
 
     _slideAnimation =
         Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero).animate(
-          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
-        );
+      CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
+    );
 
     _fadeController.forward();
     _slideController.forward();
@@ -67,15 +67,10 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  // Hàm validate email
-  String? _validateEmail(String value) {
+  // Hàm validate identifier
+  String? _validateIdentifier(String value) {
     if (value.isEmpty) {
-      return 'Vui lòng nhập email';
-    }
-    if (!RegExp(
-      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-    ).hasMatch(value)) {
-      return 'Email không hợp lệ';
+      return 'Vui lòng nhập email hoặc tên đăng nhập';
     }
     return null;
   }
@@ -84,9 +79,6 @@ class _LoginScreenState extends State<LoginScreen>
   String? _validatePassword(String value) {
     if (value.isEmpty) {
       return 'Vui lòng nhập mật khẩu';
-    }
-    if (value.length < 6) {
-      return 'Mật khẩu phải có ít nhất 6 ký tự';
     }
     return null;
   }
@@ -100,52 +92,52 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _login() async {
     // Validate tất cả fields
-    String? emailError = _validateEmail(_emailController.text.trim());
+    String? identifierError = _validateIdentifier(_emailController.text.trim());
     String? passwordError = _validatePassword(_passwordController.text.trim());
 
-    _updateFieldError('email', emailError);
+    _updateFieldError('identifier', identifierError);
     _updateFieldError('password', passwordError);
 
     // Nếu có lỗi thì dừng
-    if (emailError != null || passwordError != null) {
+    if (identifierError != null || passwordError != null) {
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
+      final userProvider = context.read<UserProvider>();
+
       // 1. Đăng nhập
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
+      await userProvider.loginUser(
+        identifier: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
       if (!mounted) return;
 
-      // --- 🔽🔽 BẮT ĐẦU PHẦN SỬA LỖI 🔽🔽 ---
-      // 2. NGAY LẬP TỨC TẢI DỮ LIỆU CỦA NGƯỜI DÙNG MỚI
-      // (Không cần 'await', hãy để chúng chạy trong nền)
-      print('Login successful. Loading user data...'); // Thêm log để kiểm tra
-      context.read<UserProvider>().loadUser();
+      // 2. Tải dữ liệu các provider khác
       context.read<WaterProvider>().loadWater();
       context.read<WeightProvider>().loadWeight();
       context.read<StepsProvider>().loadData();
-      // --- 🔼🔼 KẾT THÚC PHẦN SỬA LỖI 🔼🔼 ---
 
       // 3. Điều hướng tới Home screen
       Navigator.pushReplacementNamed(context, '/home');
-
     } catch (e) {
       if (!mounted) return;
 
-      // Hiển thị lỗi bằng SnackBar
+      String errorMessage = e.toString().replaceFirst('Exception: ', '');
+      if (e is FirebaseAuthException) {
+        errorMessage = _getErrorMessage(e);
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
               const Icon(Icons.error_outline, color: Colors.white),
               const SizedBox(width: 8),
-              Expanded(child: Text(_getErrorMessage(e))),
+              Expanded(child: Text(errorMessage)),
             ],
           ),
           backgroundColor: Colors.red.shade400,
@@ -160,6 +152,82 @@ class _LoginScreenState extends State<LoginScreen>
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _loginWithGoogle() async {
+    setState(() => _isLoading = true);
+    try {
+      await context.read<UserProvider>().signInWithGoogle();
+      if (!mounted) return;
+
+      // Tải dữ liệu các provider khác
+      context.read<WaterProvider>().loadWater();
+      context.read<WeightProvider>().loadWeight();
+      context.read<StepsProvider>().loadData();
+
+      Navigator.pushReplacementNamed(context, '/home');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đăng nhập Google thất bại: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _showForgotPasswordDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Quên mật khẩu'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Nhập Email của bạn',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (controller.text.isEmpty) return;
+              try {
+                await context.read<UserProvider>().resetPassword(
+                      controller.text.trim(),
+                    );
+                if (!mounted) return;
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Đã gửi email khôi phục mật khẩu!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Lỗi: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('Gửi'),
+          ),
+        ],
+      ),
+    );
   }
 
   String _getErrorMessage(dynamic e) {
@@ -185,7 +253,8 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: true, // Quan trọng: cho phép resize khi bàn phím hiện
+      resizeToAvoidBottomInset:
+          true, // Quan trọng: cho phép resize khi bàn phím hiện
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -201,7 +270,8 @@ class _LoginScreenState extends State<LoginScreen>
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
               child: FadeTransition(
                 opacity: _fadeAnimation,
                 child: SlideTransition(
@@ -271,15 +341,14 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                           const SizedBox(height: 24),
 
-                          // Email Field
+                          // Email/Username Field
                           TextFormField(
                             controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
                             decoration: InputDecoration(
-                              labelText: 'Email',
-                              errorText: _fieldErrors['email'],
+                              labelText: 'Email hoặc Tên đăng nhập',
+                              errorText: _fieldErrors['identifier'],
                               prefixIcon: Icon(
-                                Icons.email_outlined,
+                                Icons.person_outline,
                                 color: Colors.blue.shade400,
                               ),
                               border: OutlineInputBorder(
@@ -288,7 +357,7 @@ class _LoginScreenState extends State<LoginScreen>
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                  color: _fieldErrors['email'] != null
+                                  color: _fieldErrors['identifier'] != null
                                       ? Colors.red.shade300
                                       : Colors.grey.shade300,
                                 ),
@@ -296,7 +365,7 @@ class _LoginScreenState extends State<LoginScreen>
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                  color: _fieldErrors['email'] != null
+                                  color: _fieldErrors['identifier'] != null
                                       ? Colors.red.shade400
                                       : Colors.blue.shade400,
                                   width: 2,
@@ -310,7 +379,10 @@ class _LoginScreenState extends State<LoginScreen>
                               ),
                             ),
                             onChanged: (value) {
-                              _updateFieldError('email', _validateEmail(value));
+                              _updateFieldError(
+                                'identifier',
+                                _validateIdentifier(value),
+                              );
                             },
                           ),
                           const SizedBox(height: 14),
@@ -335,7 +407,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                                 onPressed: () {
                                   setState(
-                                        () => _obscurePassword = !_obscurePassword,
+                                    () => _obscurePassword = !_obscurePassword,
                                   );
                                 },
                               ),
@@ -374,7 +446,21 @@ class _LoginScreenState extends State<LoginScreen>
                             },
                           ),
 
-                          const SizedBox(height: 20),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: _showForgotPasswordDialog,
+                              child: Text(
+                                'Quên mật khẩu?',
+                                style: TextStyle(
+                                  color: Colors.blue.shade600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 10),
 
                           // Login Button
                           SizedBox(
@@ -392,28 +478,28 @@ class _LoginScreenState extends State<LoginScreen>
                               ),
                               child: _isLoading
                                   ? const SizedBox(
-                                height: 24,
-                                width: 24,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
-                                ),
-                              )
+                                      height: 24,
+                                      width: 24,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    )
                                   : const Row(
-                                mainAxisAlignment:
-                                MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    'Đăng nhập',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          'Đăng nhập',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        SizedBox(width: 8),
+                                        Icon(Icons.arrow_forward, size: 20),
+                                      ],
                                     ),
-                                  ),
-                                  SizedBox(width: 8),
-                                  Icon(Icons.arrow_forward, size: 20),
-                                ],
-                              ),
                             ),
                           ),
 
@@ -445,25 +531,52 @@ class _LoginScreenState extends State<LoginScreen>
 
                           const SizedBox(height: 14),
 
+                          // Google Login Button
+                          SizedBox(
+                            width: double.infinity,
+                            height: 48,
+                            child: OutlinedButton.icon(
+                              onPressed: _isLoading ? null : _loginWithGoogle,
+                              icon: Image.network(
+                                'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1200px-Google_%22G%22_logo.svg.png',
+                                height: 24,
+                              ),
+                              label: const Text(
+                                'Đăng nhập với Google',
+                                style: TextStyle(
+                                  color: Colors.black87,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: Colors.grey.shade300),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 14),
+
                           // Register Button
                           TextButton(
                             onPressed: () {
                               Navigator.push(
                                 context,
                                 PageRouteBuilder(
-                                  pageBuilder:
-                                      (
-                                      context,
-                                      animation,
-                                      secondaryAnimation,
-                                      ) => const RegisterScreen(),
-                                  transitionsBuilder:
-                                      (
-                                      context,
-                                      animation,
-                                      secondaryAnimation,
-                                      child,
-                                      ) {
+                                  pageBuilder: (
+                                    context,
+                                    animation,
+                                    secondaryAnimation,
+                                  ) =>
+                                      const RegisterScreen(),
+                                  transitionsBuilder: (
+                                    context,
+                                    animation,
+                                    secondaryAnimation,
+                                    child,
+                                  ) {
                                     return FadeTransition(
                                       opacity: animation,
                                       child: child,

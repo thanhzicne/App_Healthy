@@ -1,10 +1,10 @@
 // lib/providers/user_provider.dart
 import 'dart:io' as io;
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:path/path.dart' as p;
 import '../models/user_model.dart';
 
@@ -13,6 +13,7 @@ class UserProvider with ChangeNotifier {
   UserModel _user = UserModel(
     name: 'User',
     email: '',
+    username: '',
     gender: '',
     age: 0,
     height: 0,
@@ -24,10 +25,152 @@ class UserProvider with ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
-  // ... (loadUser and updateUser methods remain the same) ...
+  // Đăng ký người dùng mới với Username
+  Future<void> registerUser({
+    required String email,
+    required String password,
+    required String name,
+    required String username,
+  }) async {
+    try {
+      // 1. Kiểm tra username đã tồn tại chưa
+      final usernameDoc = await _firestore
+          .collection('users')
+          .where('username', isEqualTo: username)
+          .get();
+
+      if (usernameDoc.docs.isNotEmpty) {
+        throw Exception('Tên đăng nhập đã tồn tại!');
+      }
+
+      // 2. Tạo tài khoản Firebase Auth
+      UserCredential credential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      if (credential.user != null) {
+        // 3. Lưu thông tin bổ sung vào Firestore
+        _user = UserModel(
+          name: name,
+          email: email,
+          username: username,
+          gender: 'Chưa cập nhật',
+          age: 0,
+          height: 0,
+          avatarUrl: null,
+        );
+
+        await _firestore
+            .collection('users')
+            .doc(credential.user!.uid)
+            .set(_user.toJson());
+
+        notifyListeners();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error registering user: $e');
+      }
+      rethrow;
+    }
+  }
+
+  // Đăng nhập bằng Email hoặc Username
+  Future<void> loginUser({
+    required String identifier, // Có thể là email hoặc username
+    required String password,
+  }) async {
+    try {
+      String email = identifier;
+
+      // Nếu identifier không chứa '@', coi đó là username và tìm email tương ứng
+      if (!identifier.contains('@')) {
+        final userDoc = await _firestore
+            .collection('users')
+            .where('username', isEqualTo: identifier)
+            .get();
+
+        if (userDoc.docs.isEmpty) {
+          throw Exception('Tên đăng nhập không tồn tại!');
+        }
+        email = userDoc.docs.first.data()['email'];
+      }
+
+      await _auth.signInWithEmailAndPassword(email: email, password: password);
+      await loadUser();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error logging in: $e');
+      }
+      rethrow;
+    }
+  }
+
+  // Đăng nhập bằng Google
+  Future<void> signInWithGoogle() async {
+    try {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return;
+
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final UserCredential userCredential =
+          await _auth.signInWithCredential(credential);
+      final User? user = userCredential.user;
+
+      if (user != null) {
+        final doc = await _firestore.collection('users').doc(user.uid).get();
+        if (!doc.exists) {
+          // Nếu người dùng mới đăng nhập bằng Google lần đầu
+          _user = UserModel(
+            name: user.displayName ?? 'Người dùng Google',
+            email: user.email ?? '',
+            username:
+                user.email?.split('@')[0] ?? 'user_${user.uid.substring(0, 5)}',
+            gender: 'Chưa cập nhật',
+            age: 0,
+            height: 0,
+            avatarUrl: user.photoURL,
+          );
+          await _firestore
+              .collection('users')
+              .doc(user.uid)
+              .set(_user.toJson());
+        } else {
+          _user = UserModel.fromJson(doc.data()!);
+        }
+        notifyListeners();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error Google sign in: $e');
+      }
+      rethrow;
+    }
+  }
+
+  // Quên mật khẩu
+  Future<void> resetPassword(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error resetting password: $e');
+      }
+      rethrow;
+    }
+  }
+
+  // Tải thông tin người dùng từ Firestore
   Future<void> loadUser() async {
-    // ... (implementation from previous step)
     try {
       final currentUser = _auth.currentUser;
       if (currentUser != null) {
@@ -36,7 +179,7 @@ class UserProvider with ChangeNotifier {
         if (doc.exists && doc.data() != null) {
           _user = UserModel.fromJson(doc.data()!);
 
-          // FIX: Kiểm tra xem avatarUrl có phải là URL hợp lệ (bắt đầu bằng http) hay không
+          // Kiểm tra xem avatarUrl có phải là URL hợp lệ (bắt đầu bằng http) hay không
           if (_user.avatarUrl != null &&
               _user.avatarUrl!.isNotEmpty &&
               !_user.avatarUrl!.startsWith('http')) {
@@ -56,12 +199,13 @@ class UserProvider with ChangeNotifier {
         } else {
           // Nếu doc không tồn tại, tạo user mặc định và lưu vào Firestore
           _user = UserModel(
-            name: currentUser.displayName ?? 'Tên người dùng',
+            name: currentUser.displayName ?? 'Người dùng',
             email: currentUser.email ?? '',
+            username: currentUser.email?.split('@')[0] ?? 'user',
             gender: 'Chưa cập nhật',
             age: 0,
             height: 0,
-            avatarUrl: currentUser.photoURL, // Giữ ảnh gốc từ provider
+            avatarUrl: currentUser.photoURL,
           );
           await _firestore
               .collection('users')
@@ -77,9 +221,8 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  // Cập nhật thông tin người dùng (cho các trường như tên, tuổi, chiều cao)
+  // Cập nhật thông tin người dùng
   Future<void> updateUser(UserModel newUser) async {
-    // ... (implementation from previous step)
     try {
       final currentUser = _auth.currentUser;
       if (currentUser != null) {
@@ -100,7 +243,9 @@ class UserProvider with ChangeNotifier {
 
   // Internal upload function - always takes bytes
   Future<String> _internalUploadAvatar(
-      Uint8List imageBytes, String originalFileName) async {
+    Uint8List imageBytes,
+    String originalFileName,
+  ) async {
     final currentUser = _auth.currentUser;
     if (currentUser == null) {
       throw Exception('User not authenticated');
@@ -124,18 +269,22 @@ class UserProvider with ChangeNotifier {
     UploadTask uploadTask = ref.putData(imageBytes, metadata);
 
     // *** ADDED: Listen to task events for detailed logging ***
-    uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-      if (kDebugMode) {
-        print(
-            'Upload Task State: ${snapshot.state} (${snapshot.bytesTransferred}/${snapshot.totalBytes})');
-      }
-    }, onError: (Object error) {
-      // This will catch errors specifically during the upload process
-      if (kDebugMode) {
-        print('!!! Upload Task Error: $error');
-      }
-      // Consider propagating this error or handling it appropriately
-    });
+    uploadTask.snapshotEvents.listen(
+      (TaskSnapshot snapshot) {
+        if (kDebugMode) {
+          print(
+            'Upload Task State: ${snapshot.state} (${snapshot.bytesTransferred}/${snapshot.totalBytes})',
+          );
+        }
+      },
+      onError: (Object error) {
+        // This will catch errors specifically during the upload process
+        if (kDebugMode) {
+          print('!!! Upload Task Error: $error');
+        }
+        // Consider propagating this error or handling it appropriately
+      },
+    );
 
     try {
       if (kDebugMode) {
@@ -160,7 +309,8 @@ class UserProvider with ChangeNotifier {
         }
 
         await updateUserAvatar(
-            downloadUrl); // Update Firestore and notify listeners
+          downloadUrl,
+        ); // Update Firestore and notify listeners
 
         if (kDebugMode) {
           print('Firestore update successful.');
@@ -214,23 +364,21 @@ class UserProvider with ChangeNotifier {
     return _internalUploadAvatar(imageBytes, fileName);
   }
 
-  // Update user avatar URL in Firestore
+  // Cập nhật URL ảnh đại diện trong Firestore
   Future<void> updateUserAvatar(String avatarUrl) async {
-    // ... (implementation remains the same)
     try {
       final currentUser = _auth.currentUser;
       if (currentUser == null) {
         throw Exception('User not authenticated');
       }
       // Cập nhật lại field 'avatarUrl' trong Firestore
-      await _firestore
-          .collection('users')
-          .doc(currentUser.uid)
-          .update({'avatarUrl': avatarUrl});
+      await _firestore.collection('users').doc(currentUser.uid).update({
+        'avatarUrl': avatarUrl,
+      });
 
       // Cập nhật lại state của provider
       _user = _user.copyWith(avatarUrl: avatarUrl);
-      notifyListeners(); // This should trigger UI update
+      notifyListeners();
     } catch (e) {
       if (kDebugMode) {
         print('!!! Error updating Firestore avatar URL: $e');
@@ -243,9 +391,8 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  // Delete old avatar from Storage
+  // Xóa ảnh đại diện cũ khỏi Storage
   Future<void> deleteOldAvatar(String oldUrl) async {
-    // ... (implementation remains the same)
     if (oldUrl.contains('firebasestorage.googleapis.com')) {
       try {
         final ref = _storage.refFromURL(oldUrl);
@@ -270,11 +417,13 @@ class UserProvider with ChangeNotifier {
       }
     }
   }
+
   void clearAllData() {
     // Reset _user về trạng thái ban đầu
     _user = UserModel(
       name: 'User',
       email: '',
+      username: '',
       gender: '',
       age: 0,
       height: 0,

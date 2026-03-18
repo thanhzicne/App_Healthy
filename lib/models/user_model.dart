@@ -3,6 +3,7 @@
 class UserModel {
   final String name;
   final String email;
+  final String username; // Thêm trường username
   final String gender;
   final int age;
   final double height;
@@ -11,6 +12,7 @@ class UserModel {
   UserModel({
     required this.name,
     required this.email,
+    required this.username,
     required this.gender,
     required this.age,
     required this.height,
@@ -22,6 +24,7 @@ class UserModel {
     return UserModel(
       name: json['name'] ?? 'Tên người dùng',
       email: json['email'] ?? '',
+      username: json['username'] ?? '',
       gender: json['gender'] ?? 'Chưa cập nhật',
       age: (json['age'] ?? 0).toInt(),
       height: (json['height'] ?? 0.0).toDouble(),
@@ -34,6 +37,7 @@ class UserModel {
     return {
       'name': name,
       'email': email,
+      'username': username,
       'gender': gender,
       'age': age,
       'height': height,
@@ -45,6 +49,7 @@ class UserModel {
   UserModel copyWith({
     String? name,
     String? email,
+    String? username,
     String? gender,
     int? age,
     double? height,
@@ -53,6 +58,7 @@ class UserModel {
     return UserModel(
       name: name ?? this.name,
       email: email ?? this.email,
+      username: username ?? this.username,
       gender: gender ?? this.gender,
       age: age ?? this.age,
       height: height ?? this.height,

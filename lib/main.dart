@@ -8,14 +8,15 @@ import 'providers/user_provider.dart';
 import 'providers/water_provider.dart';
 import 'providers/weight_provider.dart';
 import 'providers/steps_provider.dart';
+import 'providers/theme_provider.dart';
 import 'navigation/bottom_nav.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/steps_screen.dart';
-import 'screens/steps_history_screen.dart';
 import 'screens/weight_screen.dart';
 import 'screens/water_screen.dart';
 import 'firebase_options.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,7 +26,8 @@ void main() async {
 
   try {
     await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform);
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
   } catch (e) {
     print('Lỗi khởi tạo Firebase: $e');
   }
@@ -40,41 +42,117 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()..loadUser()),
         ChangeNotifierProvider(create: (_) => WaterProvider()),
         ChangeNotifierProvider(create: (_) => WeightProvider()),
         ChangeNotifierProvider(create: (_) => StepsProvider()),
       ],
-      child: MaterialApp(
-        title: 'Health App',
-        debugShowCheckedModeBanner: false,
+      child: const _AppLifecycleWrapper(),
+    );
+  }
+}
 
-        // ✅ Thêm localization delegates (BẮT BUỘC cho tiếng Việt)
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [
-          Locale('vi', 'VN'),
-          Locale('en', 'US'),
-        ],
-        locale: const Locale('vi', 'VN'),
+class _AppLifecycleWrapper extends StatefulWidget {
+  const _AppLifecycleWrapper();
 
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-          useMaterial3: true,
-        ),
-        routes: {
-          '/login': (context) => const LoginScreen(),
-          '/register': (context) => const RegisterScreen(),
-          '/home': (context) => const BottomNav(),
-          '/steps': (context) => const StepsScreen(),
-          '/weight': (context) => const WeightScreen(),
-          '/water': (context) => const WaterScreen(),
-        },
-        home: const AuthWrapper(),
-      ),
+  @override
+  State<_AppLifecycleWrapper> createState() => _AppLifecycleWrapperState();
+}
+
+class _AppLifecycleWrapperState extends State<_AppLifecycleWrapper>
+    with WidgetsBindingObserver {
+  DateTime _lastNotifUpdate = DateTime.fromMillisecondsSinceEpoch(0);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
+    // Khởi tạo notification sớm để kịp show khi app ra nền.
+    NotificationService().initialize();
+
+    // Lắng nghe StepsProvider để cập nhật notification khi app đang ở nền (debounce nhẹ).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final stepsProvider = context.read<StepsProvider>();
+      stepsProvider.addListener(_onStepsChanged);
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    context.read<StepsProvider>().removeListener(_onStepsChanged);
+    super.dispose();
+  }
+
+  void _onStepsChanged() {
+    final state = WidgetsBinding.instance.lifecycleState;
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.inactive) {
+      // Tránh update quá dày
+      final now = DateTime.now();
+      if (now.difference(_lastNotifUpdate).inMilliseconds < 1500) return;
+      _lastNotifUpdate = now;
+
+      final stepsProvider = context.read<StepsProvider>();
+      NotificationService().showOrUpdateLiveStepsNotification(
+        stepsToday: stepsProvider.steps.steps,
+        goal: stepsProvider.steps.goal,
+      );
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final stepsProvider = context.read<StepsProvider>();
+
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.inactive) {
+      // Khi app ra nền/đóng: show ongoing notification hiển thị bước chân.
+      NotificationService().showOrUpdateLiveStepsNotification(
+        stepsToday: stepsProvider.steps.steps,
+        goal: stepsProvider.steps.goal,
+      );
+    }
+
+    // Nếu muốn tắt notification khi quay lại app thì mở dòng dưới:
+    // if (state == AppLifecycleState.resumed) {
+    //   NotificationService().cancelLiveStepsNotification();
+    // }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return MaterialApp(
+          title: 'Health App',
+          debugShowCheckedModeBanner: false,
+
+          // ✅ Thêm localization delegates (BẮT BUỘC cho tiếng Việt)
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('vi', 'VN'), Locale('en', 'US')],
+          locale: themeProvider.locale,
+
+          theme: themeProvider.currentTheme,
+          routes: {
+            '/login': (context) => const LoginScreen(),
+            '/register': (context) => const RegisterScreen(),
+            '/home': (context) => const BottomNav(),
+            '/steps': (context) => const StepsScreen(),
+            '/weight': (context) => const WeightScreen(),
+            '/water': (context) => const WaterScreen(),
+          },
+          home: const AuthWrapper(),
+        );
+      },
     );
   }
 }
@@ -125,9 +203,7 @@ class LoadingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
-    );
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }
 

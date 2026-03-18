@@ -15,6 +15,9 @@ class NotificationService {
 
   bool _initialized = false;
 
+  // Dùng 1 ID cố định để "update" notification thay vì tạo nhiều cái mới.
+  static const int _liveStepsNotificationId = 4242;
+
   Future<void> initialize() async {
     if (_initialized) return;
 
@@ -45,6 +48,17 @@ class NotificationService {
         enableLights: true,
         ledColor: Color(0xFF9C27B0),
       );
+
+      // ✅ Channel riêng cho hiển thị bước chân realtime (ongoing)
+      const liveStepsChannel = AndroidNotificationChannel(
+        'steps_live_channel',
+        'Live Steps',
+        description: 'Hiển thị số bước chân hiện tại trên thanh thông báo',
+        importance: Importance.low,
+        playSound: false,
+        enableVibration: false,
+        enableLights: false,
+      );
       //  THÊM: Channel cho Weight Reminder
       const weightChannel = AndroidNotificationChannel(
         'weight_reminders_channel', // Key mới
@@ -63,6 +77,7 @@ class NotificationService {
       // Tạo channels trên Android
       await androidPlugin?.createNotificationChannel(waterChannel);
       await androidPlugin?.createNotificationChannel(stepsChannel);
+      await androidPlugin?.createNotificationChannel(liveStepsChannel);
       await androidPlugin?.createNotificationChannel(weightChannel);
       // Cấu hình khởi tạo
       const androidSettings =
@@ -183,6 +198,60 @@ class NotificationService {
     } catch (e) {
       print('❌ Lỗi gửi notification: $e');
       rethrow;
+    }
+  }
+
+  /// ✅ Hiển thị / cập nhật notification "ongoing" để show bước chân khi app ra nền/đóng.
+  /// Android: notification dạng ongoing (không swipe được nếu ongoing=true).
+  Future<void> showOrUpdateLiveStepsNotification({
+    required int stepsToday,
+    int? goal,
+  }) async {
+    if (!_initialized) {
+      await initialize();
+    }
+
+    try {
+      final title = '👣 Bước chân hôm nay';
+      final body = goal == null ? '$stepsToday bước' : '$stepsToday / $goal bước';
+
+      final androidDetails = AndroidNotificationDetails(
+        'steps_live_channel',
+        'Live Steps',
+        channelDescription: 'Hiển thị số bước chân hiện tại',
+        importance: Importance.low,
+        priority: Priority.low,
+        icon: '@mipmap/ic_launcher',
+        ongoing: true,
+        onlyAlertOnce: true,
+        showWhen: false,
+      );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: false,
+        presentBadge: false,
+        presentSound: false,
+      );
+
+      final details = NotificationDetails(android: androidDetails, iOS: iosDetails);
+
+      await _notifications.show(
+        _liveStepsNotificationId,
+        title,
+        body,
+        details,
+        payload: 'live_steps',
+      );
+    } catch (e) {
+      print('❌ Lỗi showOrUpdateLiveStepsNotification: $e');
+    }
+  }
+
+  Future<void> cancelLiveStepsNotification() async {
+    try {
+      await _notifications.cancel(_liveStepsNotificationId);
+    } catch (e) {
+      print('❌ Lỗi cancelLiveStepsNotification: $e');
     }
   }
 

@@ -402,6 +402,13 @@ class _ProfileScreenState extends State<ProfileScreen>
                 // Await the update operation
                 await userProvider.updateUser(newUser);
 
+                // ✅ Cập nhật mục tiêu cân nặng lý tưởng nếu chiều cao thay đổi
+                if (mounted) {
+                  await context
+                      .read<WeightProvider>()
+                      .updateIdealTargetAfterHeightChange(height);
+                }
+
                 // *** ADD MOUNTED CHECK (for the main screen state) ***
                 if (!mounted) return;
 

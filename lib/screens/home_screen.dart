@@ -45,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     _staggerAnimations = List.generate(
       6,
-          (index) => Tween<double>(begin: 0, end: 1).animate(
+      (index) => Tween<double>(begin: 0, end: 1).animate(
         CurvedAnimation(
           parent: _mainAnimationController,
           curve: Interval(
@@ -81,11 +81,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Colors.blue.shade50,
-              Colors.purple.shade50,
-              Colors.pink.shade50,
-            ],
+            colors: Theme.of(context).brightness == Brightness.light
+                ? [
+                    Colors.blue.shade50,
+                    Colors.purple.shade50,
+                    Colors.pink.shade50,
+                  ]
+                : [
+                    Colors.grey.shade900,
+                    Colors.blueGrey.shade900,
+                    const Color(0xFF121212),
+                  ],
           ),
         ),
         child: CustomScrollView(
@@ -106,14 +112,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [
-                          Colors.white.withOpacity(0.8),
-                          Colors.white.withOpacity(0.6),
-                        ],
+                        colors: Theme.of(context).brightness == Brightness.light
+                            ? [
+                                Colors.white.withOpacity(0.8),
+                                Colors.white.withOpacity(0.6),
+                              ]
+                            : [
+                                Colors.grey.shade900.withOpacity(0.8),
+                                Colors.black.withOpacity(0.6),
+                              ],
                       ),
                       border: Border(
                         bottom: BorderSide(
-                          color: Colors.white.withOpacity(0.3),
+                          color: Theme.of(
+                            context,
+                          ).dividerColor.withOpacity(0.3),
                           width: 1,
                         ),
                       ),
@@ -152,7 +165,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: Colors.black87,
                             ),
                           ),
                         ],
@@ -174,15 +186,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     FadeTransition(
                       opacity: _staggerAnimations[0],
                       child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0, -0.2),
-                          end: Offset.zero,
-                        ).animate(
-                          CurvedAnimation(
-                            parent: _mainAnimationController,
-                            curve: Curves.easeOutCubic,
-                          ),
-                        ),
+                        position:
+                            Tween<Offset>(
+                              begin: const Offset(0, -0.2),
+                              end: Offset.zero,
+                            ).animate(
+                              CurvedAnimation(
+                                parent: _mainAnimationController,
+                                curve: Curves.easeOutCubic,
+                              ),
+                            ),
                         child: _buildEnhancedGoalCard(steps),
                       ),
                     ),
@@ -196,8 +209,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         scale: Tween<double>(begin: 0.85, end: 1.0).animate(
                           CurvedAnimation(
                             parent: _mainAnimationController,
-                            curve: const Interval(0.2, 0.8,
-                                curve: Curves.elasticOut),
+                            curve: const Interval(
+                              0.2,
+                              0.8,
+                              curve: Curves.elasticOut,
+                            ),
                           ),
                         ),
                         child: Row(
@@ -207,11 +223,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                 icon: Icons.scale_rounded,
                                 label: 'Cân nặng',
                                 value:
-                                '${weight.currentWeight.toStringAsFixed(1)} kg',
+                                    '${weight.currentWeight.toStringAsFixed(1)} kg',
                                 color: Colors.orange,
                                 gradient: [
                                   Colors.orange.shade400,
-                                  Colors.deepOrange.shade600
+                                  Colors.deepOrange.shade600,
                                 ],
                               ),
                             ),
@@ -224,7 +240,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                 color: Colors.blue,
                                 gradient: [
                                   Colors.blue.shade400,
-                                  Colors.cyan.shade600
+                                  Colors.cyan.shade600,
                                 ],
                               ),
                             ),
@@ -244,7 +260,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             animation: _pulseAnimationController,
                             builder: (context, child) {
                               return Transform.scale(
-                                scale: 1.0 +
+                                scale:
+                                    1.0 +
                                     (_pulseAnimationController.value * 0.1),
                                 child: Container(
                                   padding: const EdgeInsets.all(8),
@@ -305,7 +322,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             label: 'Thêm nước',
                             gradient: [
                               Colors.blue.shade400,
-                              Colors.cyan.shade600
+                              Colors.cyan.shade600,
                             ],
                             onTap: () => Navigator.pushNamed(context, '/water'),
                           ),
@@ -315,7 +332,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             label: 'Cân nặng',
                             gradient: [
                               Colors.orange.shade400,
-                              Colors.deepOrange.shade600
+                              Colors.deepOrange.shade600,
                             ],
                             onTap: () =>
                                 Navigator.pushNamed(context, '/weight'),
@@ -326,7 +343,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             label: 'Bước chân',
                             gradient: [
                               Colors.purple.shade400,
-                              Colors.deepPurple.shade600
+                              Colors.deepPurple.shade600,
                             ],
                             onTap: () => Navigator.pushNamed(context, '/steps'),
                           ),
@@ -337,7 +354,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             label: 'Thông báo',
                             gradient: [
                               Colors.pink.shade400,
-                              Colors.red.shade500
+                              Colors.red.shade500,
                             ],
                             onTap: () => _showNotificationOptions(context),
                           ),
@@ -372,10 +389,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Colors.white,
-              Colors.blue.shade50,
-            ],
+            colors: [Colors.white, Colors.blue.shade50],
           ),
         ),
         constraints: BoxConstraints(
@@ -614,8 +628,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
               const SizedBox(height: 20),
             ],
-
-        ),
+          ),
         ),
       ),
     );
@@ -637,16 +650,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                Colors.blue.shade50,
-                Colors.purple.shade50,
-              ],
+              colors: [Colors.blue.shade50, Colors.purple.shade50],
             ),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.blue.shade200,
-              width: 1,
-            ),
+            border: Border.all(color: Colors.blue.shade200, width: 1),
           ),
           child: Row(
             children: [
@@ -654,10 +661,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      Colors.blue.shade300,
-                      Colors.blue.shade500,
-                    ],
+                    colors: [Colors.blue.shade300, Colors.blue.shade500],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -715,8 +719,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             borderRadius: BorderRadius.circular(28),
             boxShadow: [
               BoxShadow(
-                color: Colors.purple
-                    .withOpacity(0.3 + (_pulseAnimationController.value * 0.1)),
+                color: Colors.purple.withOpacity(
+                  0.3 + (_pulseAnimationController.value * 0.1),
+                ),
                 blurRadius: 20 + (_pulseAnimationController.value * 5),
                 offset: const Offset(0, 10),
               ),
@@ -840,7 +845,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           builder: (context, child) {
                             return FractionallySizedBox(
                               widthFactor:
-                              progress * _mainAnimationController.value,
+                                  progress * _mainAnimationController.value,
                               child: Container(
                                 height: 16,
                                 decoration: BoxDecoration(
@@ -912,7 +917,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -945,7 +950,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           Text(
             label,
             style: TextStyle(
-              color: Colors.grey.shade600,
+              color:
+                  Theme.of(context).textTheme.bodySmall?.color ??
+                  Colors.grey.shade600,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -953,10 +960,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           const SizedBox(height: 6),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color:
+                  Theme.of(context).textTheme.bodyLarge?.color ??
+                  Colors.black87,
             ),
           ),
         ],
@@ -977,12 +986,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         final isHovered = hoveredButtons.contains(index);
         return MouseRegion(
           onEnter: (_) =>
-          _hoveredButtons.value = {..._hoveredButtons.value, index},
+              _hoveredButtons.value = {..._hoveredButtons.value, index},
           onExit: (_) =>
-          _hoveredButtons.value = {..._hoveredButtons.value}..remove(index),
+              _hoveredButtons.value = {..._hoveredButtons.value}..remove(index),
           child: GestureDetector(
             onTapDown: (_) =>
-            _hoveredButtons.value = {..._hoveredButtons.value, index},
+                _hoveredButtons.value = {..._hoveredButtons.value, index},
             onTapUp: (_) {
               Future.delayed(const Duration(milliseconds: 150), () {
                 _hoveredButtons.value = {..._hoveredButtons.value}
@@ -990,9 +999,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 onTap();
               });
             },
-            onTapCancel: () => _hoveredButtons.value = {
-              ..._hoveredButtons.value
-            }..remove(index),
+            onTapCancel: () =>
+                _hoveredButtons.value = {..._hoveredButtons.value}
+                  ..remove(index),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeOutCubic,

@@ -150,14 +150,21 @@ class _BottomNavState extends State<BottomNav> with TickerProviderStateMixin {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white.withOpacity(0.9),
-                    Colors.white.withOpacity(0.8),
-                  ],
+                  colors: Theme.of(context).brightness == Brightness.light
+                      ? [
+                          Colors.white.withOpacity(0.9),
+                          Colors.white.withOpacity(0.8),
+                        ]
+                      : [
+                          Colors.grey.shade900.withOpacity(0.9),
+                          Colors.black.withOpacity(0.8),
+                        ],
                 ),
                 borderRadius: BorderRadius.circular(30),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? Colors.white.withOpacity(0.3)
+                      : Colors.grey.shade800.withOpacity(0.3),
                   width: 1.5,
                 ),
               ),

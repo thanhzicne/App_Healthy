@@ -9,6 +9,7 @@ class UserProvider with ChangeNotifier {
   UserModel _user = UserModel(
     name: 'User',
     email: '',
+    username: '',
     gender: '',
     age: 0,
     height: 0,
@@ -36,6 +37,7 @@ class UserProvider with ChangeNotifier {
           _user = UserModel(
             name: currentUser.displayName ?? 'User',
             email: currentUser.email ?? '',
+            username: currentUser.email?.split('@')[0] ?? 'user',
             gender: '',
             age: 0,
             height: 0,
@@ -114,6 +116,7 @@ class UserProvider with ChangeNotifier {
         _user = UserModel(
           name: _user.name,
           email: _user.email,
+          username: _user.username,
           gender: _user.gender,
           age: _user.age,
           height: _user.height,

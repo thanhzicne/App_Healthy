@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "377997945929-mdf8i6kvd3gtav4mihu7okserdm4rfkj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.app_healthcare",
+            "certificate_hash": "8172f040bc6116ab006d3b80f5b116b58d6f5e03"
+          }
+        },
+        {
           "client_id": "377997945929-796okdd4131bgpumji8p5irrfva55hkf.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -29,6 +37,13 @@
             {
               "client_id": "377997945929-796okdd4131bgpumji8p5irrfva55hkf.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "377997945929-qha25c1p901ku9pcjor5384cgsh7nj1p.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.appHealthcare"
+              }
             }
           ]
         }

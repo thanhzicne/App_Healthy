@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -10,17 +11,20 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen>
     with TickerProviderStateMixin {
+  final _nameController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  final _auth = FirebaseAuth.instance;
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
 
   // Map để lưu trữ lỗi của từng field
   Map<String, String?> _fieldErrors = {
+    'name': null,
+    'username': null,
     'email': null,
     'password': null,
     'confirm': null,
@@ -52,8 +56,8 @@ class _RegisterScreenState extends State<RegisterScreen>
 
     _slideAnimation =
         Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero).animate(
-          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
-        );
+      CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
+    );
 
     _fadeController.forward();
     _slideController.forward();
@@ -63,10 +67,34 @@ class _RegisterScreenState extends State<RegisterScreen>
   void dispose() {
     _fadeController.dispose();
     _slideController.dispose();
+    _nameController.dispose();
+    _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
     super.dispose();
+  }
+
+  // Hàm validate name
+  String? _validateName(String value) {
+    if (value.isEmpty) {
+      return 'Vui lòng nhập họ tên';
+    }
+    return null;
+  }
+
+  // Hàm validate username
+  String? _validateUsername(String value) {
+    if (value.isEmpty) {
+      return 'Vui lòng nhập tên đăng nhập';
+    }
+    if (value.length < 3) {
+      return 'Tên đăng nhập phải có ít nhất 3 ký tự';
+    }
+    if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)) {
+      return 'Chỉ chứa chữ cái, số và dấu gạch dưới';
+    }
+    return null;
   }
 
   // Hàm validate email
@@ -113,41 +141,53 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   Future<void> _registerUser() async {
     // Validate tất cả fields
+    String? nameError = _validateName(_nameController.text.trim());
+    String? usernameError = _validateUsername(_usernameController.text.trim());
     String? emailError = _validateEmail(_emailController.text.trim());
     String? passwordError = _validatePassword(_passwordController.text.trim());
     String? confirmError = _validateConfirmPassword(
       _confirmController.text.trim(),
     );
 
+    _updateFieldError('name', nameError);
+    _updateFieldError('username', usernameError);
     _updateFieldError('email', emailError);
     _updateFieldError('password', passwordError);
     _updateFieldError('confirm', confirmError);
 
     // Nếu có lỗi thì dừng
-    if (emailError != null || passwordError != null || confirmError != null) {
+    if (nameError != null ||
+        usernameError != null ||
+        emailError != null ||
+        passwordError != null ||
+        confirmError != null) {
       return;
     }
 
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
+    final name = _nameController.text.trim();
+    final username = _usernameController.text.trim();
 
     setState(() => _isLoading = true);
 
     try {
-      await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      await context.read<UserProvider>().registerUser(
+            email: email,
+            password: password,
+            name: name,
+            username: username,
+          );
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Row(
+          content: const Row(
             children: [
-              const Icon(Icons.check_circle_outline, color: Colors.white),
-              const SizedBox(width: 8),
-              const Expanded(child: Text("Đăng ký thành công!")),
+              Icon(Icons.check_circle_outline, color: Colors.white),
+              SizedBox(width: 8),
+              Expanded(child: Text("Đăng ký thành công!")),
             ],
           ),
           backgroundColor: Colors.green.shade400,
@@ -160,37 +200,27 @@ class _RegisterScreenState extends State<RegisterScreen>
 
       // Chuyển sang màn hình login
       Navigator.pushReplacementNamed(context, '/login');
-    } on FirebaseAuthException catch (e) {
+    } catch (e) {
       if (!mounted) return;
 
-      String errorMessage = "Lỗi: ${e.message}";
-      if (e.code == 'email-already-in-use') {
-        errorMessage = "Email đã được sử dụng";
-        _updateFieldError('email', errorMessage);
-      } else if (e.code == 'weak-password') {
-        errorMessage = "Mật khẩu quá yếu";
-        _updateFieldError('password', errorMessage);
-      } else if (e.code == 'invalid-email') {
-        errorMessage = "Email không hợp lệ";
-        _updateFieldError('email', errorMessage);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(child: Text(errorMessage)),
-              ],
-            ),
-            backgroundColor: Colors.red.shade400,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+      String errorMessage = e.toString().replaceFirst('Exception: ', '');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(child: Text(errorMessage)),
+            ],
           ),
-        );
-      }
+          backgroundColor: Colors.red.shade400,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -285,6 +315,87 @@ class _RegisterScreenState extends State<RegisterScreen>
                             ),
                           ),
                           const SizedBox(height: 32),
+
+                          // Name Field
+                          TextFormField(
+                            controller: _nameController,
+                            decoration: InputDecoration(
+                              labelText: 'Họ và tên',
+                              errorText: _fieldErrors['name'],
+                              prefixIcon: Icon(
+                                Icons.person_outline,
+                                color: Colors.purple.shade400,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: _fieldErrors['name'] != null
+                                      ? Colors.red.shade300
+                                      : Colors.grey.shade300,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: _fieldErrors['name'] != null
+                                      ? Colors.red.shade400
+                                      : Colors.purple.shade400,
+                                  width: 2,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
+                            ),
+                            onChanged: (value) {
+                              _updateFieldError('name', _validateName(value));
+                            },
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Username Field
+                          TextFormField(
+                            controller: _usernameController,
+                            decoration: InputDecoration(
+                              labelText: 'Tên đăng nhập',
+                              errorText: _fieldErrors['username'],
+                              prefixIcon: Icon(
+                                Icons.alternate_email,
+                                color: Colors.purple.shade400,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: _fieldErrors['username'] != null
+                                      ? Colors.red.shade300
+                                      : Colors.grey.shade300,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: _fieldErrors['username'] != null
+                                      ? Colors.red.shade400
+                                      : Colors.purple.shade400,
+                                  width: 2,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
+                            ),
+                            onChanged: (value) {
+                              _updateFieldError(
+                                'username',
+                                _validateUsername(value),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 16),
 
                           // Email Field
                           TextFormField(

@@ -15,16 +15,18 @@ dependencies:
   # ✅ THÊM flutter_localizations (BẮT BUỘC)
   flutter_localizations:
     sdk: flutter
+
+  # Intl (DateFormat đang được dùng ở nhiều màn hình)
+  intl: ^0.20.2
   
   # State Management
   provider: ^6.1.1
   
   # Firebase
-  firebase_core: ^2.24.2
-  firebase_auth: ^4.15.3
-  firebase_auth_web: ^5.9.0
-  firebase_storage: ^11.5.0
-  cloud_firestore: ^4.17.0
+  firebase_core: ^3.1.1
+  firebase_auth: ^5.1.2
+  firebase_storage: ^12.1.1
+  cloud_firestore: ^5.0.2
 
   # UI & Fonts
   google_fonts: ^6.1.0
@@ -37,16 +39,26 @@ dependencies:
   
   # Image Picker (Avatar Upload)
   image_picker: ^1.1.2
-  
+
+  # Google Sign In
+  google_sign_in: ^6.2.1
+
+  # Export Data
+  pdf: ^3.10.8
+  excel: ^4.0.0
+  path_provider: ^2.1.2
+  share_plus: ^10.1.0
+
   # Additional utilities
   cupertino_icons: ^1.0.6
   
   # ✅ XÓA dòng intl (flutter_localizations đã bao gồm intl)
-  # intl: ^0.18.1  <- XÓA DÒNG NÀY
+  # (Đã thêm intl ở trên để tránh lỗi analyzer depend_on_referenced_packages)
 
   # Pedometer
   pedometer: ^4.0.1
   permission_handler: ^12.0.1
+  sensors_plus: ^6.1.1
   
   # Local Notifications
   flutter_local_notifications: ^17.0.0
