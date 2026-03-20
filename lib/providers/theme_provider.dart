@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeProvider with ChangeNotifier {
@@ -38,35 +39,65 @@ class ThemeProvider with ChangeNotifier {
     return _isDarkMode ? _darkTheme : _lightTheme;
   }
 
-  static final _lightTheme = ThemeData(
-    useMaterial3: true,
-    brightness: Brightness.light,
-    primarySwatch: Colors.blue,
-    scaffoldBackgroundColor: Colors.grey.shade50,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: Colors.blue,
+  static ThemeData get _lightTheme {
+    final baseTheme = ThemeData(
+      useMaterial3: true,
       brightness: Brightness.light,
-    ),
-    appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      centerTitle: true,
-    ),
-  );
+      primarySwatch: Colors.blue,
+      scaffoldBackgroundColor: Colors.grey.shade50,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: Colors.blue,
+        brightness: Brightness.light,
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.black87),
+        titleTextStyle: GoogleFonts.nunito(
+          color: Colors.black87,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
 
-  static final _darkTheme = ThemeData(
-    useMaterial3: true,
-    brightness: Brightness.dark,
-    primarySwatch: Colors.blue,
-    scaffoldBackgroundColor: const Color(0xFF121212),
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: Colors.blue,
+    return baseTheme.copyWith(
+      textTheme: GoogleFonts.nunitoTextTheme(baseTheme.textTheme).apply(
+        bodyColor: Colors.black87,
+        displayColor: Colors.black87,
+      ),
+    );
+  }
+
+  static ThemeData get _darkTheme {
+    final baseTheme = ThemeData(
+      useMaterial3: true,
       brightness: Brightness.dark,
-    ),
-    appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      centerTitle: true,
-    ),
-  );
+      primarySwatch: Colors.blue,
+      scaffoldBackgroundColor: const Color(0xFF121212),
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: Colors.blue,
+        brightness: Brightness.dark,
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white),
+        titleTextStyle: GoogleFonts.nunito(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+
+    return baseTheme.copyWith(
+      textTheme: GoogleFonts.nunitoTextTheme(baseTheme.textTheme).apply(
+        bodyColor: Colors.grey.shade200,
+        displayColor: Colors.white,
+      ),
+    );
+  }
 }

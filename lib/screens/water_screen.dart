@@ -520,7 +520,7 @@ class _WaterScreenState extends State<WaterScreen>
               style: GoogleFonts.poppins(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.grey.shade800,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
             ),
           ],
@@ -569,7 +569,7 @@ class _WaterScreenState extends State<WaterScreen>
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
-                      color: Colors.grey.shade800,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
                     ),
                   ),
                   const Spacer(),
@@ -695,7 +695,7 @@ class _WaterScreenState extends State<WaterScreen>
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
-                      color: Colors.grey.shade800,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
                     ),
                   ),
                   const Spacer(),
@@ -1076,7 +1076,7 @@ class _WaterScreenState extends State<WaterScreen>
                         style: GoogleFonts.poppins(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade800,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
                         ),
                       ),
                     ],
@@ -1170,7 +1170,7 @@ class _WaterScreenState extends State<WaterScreen>
                                   style: GoogleFonts.poppins(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.grey.shade800,
+                                    color: Theme.of(context).textTheme.bodyLarge?.color,
                                   ),
                                 ),
                                 Text(
@@ -1380,7 +1380,7 @@ class _WaterScreenState extends State<WaterScreen>
                                   style: GoogleFonts.poppins(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.grey.shade800,
+                                    color: Theme.of(context).textTheme.bodyLarge?.color,
                                   ),
                                 ),
                                 Text(
